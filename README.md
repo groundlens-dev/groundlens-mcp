@@ -1,4 +1,4 @@
-# groundlens-mcp
+# GROUNDLENS-MCP
 
 MCP server for [groundlens](https://groundlens.dev) — LLM hallucination detection for Claude Desktop, Cursor, Windsurf, and any MCP-compatible client.
 
@@ -42,9 +42,11 @@ uv pip install groundlens-mcp
 
 Add to your `claude_desktop_config.json`:
 
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-**Linux**: `~/.config/Claude/claude_desktop_config.json`
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
+- **Linux**: `~/.config/Claude/claude_desktop_config.json`
 
 ```json
 {
@@ -97,9 +99,9 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 }
 ```
 
-## Usage
+## How to use
 
-Once configured, ask your assistant naturally:
+Once configured, ask your ai assistant:
 
 > "Check if this response is hallucinated"
 

@@ -4,16 +4,20 @@
 <p align="center">
   <img src="https://raw.githubusercontent.com/groundlens-dev/groundlens-mcp/main/assets/logo_groundlens_mcp.png" alt="groundlens MCP" width="200">
 </p>
-
+<br/>
+<div align="center">
+  
+  [![Python](https://img.shields.io/pypi/pyversions/groundlens-mcp?style=flat-square)](https://pypi.org/project/groundlens-mcp/)
+  [![CI](https://img.shields.io/github/actions/workflow/status/groundlens-dev/groundlens-mcp/ci.yml?branch=main&label=CI&style=flat-square)](https://github.com/groundlens-dev/groundlens-mcp/actions)
+  [![codecov](https://codecov.io/gh/groundlens-dev/groundlens-mcp/branch/main/graph/badge.svg)](https://codecov.io/gh/groundlens-dev/groundlens-mcp)
+  [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
+  
+</div>
 
 MCP server for [groundlens](https://groundlens.dev) — LLM hallucination detection for Claude Desktop, Cursor, Windsurf, and any MCP-compatible client.
-
 No second LLM. Deterministic. Same inputs → same scores, every time.
 
-[![Python](https://img.shields.io/pypi/pyversions/groundlens-mcp?style=flat-square)](https://pypi.org/project/groundlens-mcp/)
-[![CI](https://img.shields.io/github/actions/workflow/status/groundlens-dev/groundlens-mcp/ci.yml?branch=main&label=CI&style=flat-square)](https://github.com/groundlens-dev/groundlens-mcp/actions)
-[![codecov](https://codecov.io/gh/groundlens-dev/groundlens-mcp/branch/main/graph/badge.svg)](https://codecov.io/gh/groundlens-dev/groundlens-mcp)
-[![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
+
 
 ## What it does
 

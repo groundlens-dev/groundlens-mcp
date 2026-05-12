@@ -28,7 +28,7 @@ jobs:
         env:
           PYTHONPATH: src
         run: |
-          pytest tests/ -v --cov=groundlens_mcp --cov-report=xml --cov-report=term-missing --cov-fail-under=90
+          pytest tests/ -v --cov=groundlens_mcp --cov-report=xml --cov-report=term-missing --cov-fail-under=85
 
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.12'

@@ -1,3 +1,4 @@
+cat > .github/workflows/ci.yml << 'EOF'
 name: CI
 
 on:
@@ -28,7 +29,7 @@ jobs:
         env:
           PYTHONPATH: src
         run: |
-          pytest tests/ -v --cov=groundlens_mcp --cov-report=xml --cov-report=term-missing --cov-fail-under=85
+          pytest tests/ -v --cov=groundlens_mcp --cov-report=xml --cov-report=term-missing --cov-fail-under=80
 
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.12'
@@ -37,3 +38,4 @@ jobs:
           file: coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
+EOF

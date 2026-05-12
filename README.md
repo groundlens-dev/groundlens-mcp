@@ -5,6 +5,9 @@ MCP server for [groundlens](https://groundlens.dev) — LLM hallucination detect
 No second LLM. Deterministic. Same inputs → same scores, every time.
 
 [![PyPI](https://img.shields.io/pypi/v/groundlens-mcp?style=flat-square)](https://pypi.org/project/groundlens-mcp/)
+[![CI](https://img.shields.io/github/actions/workflow/status/groundlens-dev/groundlens-mcp/ci.yml?branch=main&style=flat-square&label=tests)](https://github.com/groundlens-dev/groundlens-mcp/actions/workflows/ci.yml)
+[![codecov](https://img.shields.io/codecov/c/github/groundlens-dev/groundlens-mcp?style=flat-square)](https://codecov.io/gh/groundlens-dev/groundlens-mcp)
+[![Python](https://img.shields.io/pypi/pyversions/groundlens-mcp?style=flat-square)](https://pypi.org/project/groundlens-mcp/)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
 ## What it does

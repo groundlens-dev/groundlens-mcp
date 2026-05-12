@@ -2,7 +2,7 @@
 
 
 <p align="center">
-  <img src="https://github.com/groundlens-dev/groundlens-mcp/blob/8da4e1c27bbfbd84c828c35e6030bee3f186ee4d/assets/logo_groundlens_mcp.png" alt="groundlens MCP" width="200">
+  <img src="https://raw.githubusercontent.com/groundlens-dev/groundlens-mcp/main/assets/logo_groundlens_mcp.png" alt="groundlens MCP" width="200">
 </p>
 
 

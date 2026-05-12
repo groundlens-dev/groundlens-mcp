@@ -16,10 +16,29 @@ All scoring is deterministic — same inputs, same scores, every time.
 from __future__ import annotations
 
 import json
+import logging
+import time
 from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel, Field, ConfigDict
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Logging
+# ─────────────────────────────────────────────────────────────────────────────
+
+logger = logging.getLogger("groundlens-mcp")
+logger.setLevel(logging.INFO)
+
+if not logger.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(
+        logging.Formatter(
+            "%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+            datefmt="%H:%M:%S",
+        )
+    )
+    logger.addHandler(_handler)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Server
@@ -115,10 +134,45 @@ _loaded = False
 
 
 def _ensure_loaded() -> None:
+    """Load the groundlens embedding model on first use.
+
+    Logs timing so the user can see why the first call takes longer.
+    Raises RuntimeError with a friendly message if loading fails.
+    """
     global _loaded
-    if not _loaded:
+    if _loaded:
+        return
+
+    logger.info(
+        "Loading embedding model for the first time "
+        "(~100 MB download on first run, ~5 s on subsequent starts)..."
+    )
+    load_start = time.perf_counter()
+
+    try:
         import groundlens  # noqa: F401 — triggers model download if needed
-        _loaded = True
+
+        # Warm up with a trivial call to ensure model is fully loaded
+        from groundlens import compute_dgi
+        compute_dgi(question="warmup", response="warmup")
+
+    except ImportError as exc:
+        logger.error("groundlens library not installed: %s", exc)
+        raise RuntimeError(
+            "The groundlens library is not installed. "
+            "Run: pip install groundlens"
+        ) from exc
+    except Exception as exc:
+        logger.error("Failed to load embedding model: %s", exc)
+        raise RuntimeError(
+            "Could not load the embedding model. "
+            "This usually means the model download was interrupted. "
+            f"Try again or check your network connection. Detail: {exc}"
+        ) from exc
+
+    elapsed = time.perf_counter() - load_start
+    logger.info("Model loaded in %.1f s — ready for requests.", elapsed)
+    _loaded = True
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -187,6 +241,19 @@ def _format_dgi_result(result) -> str:
     )
 
 
+def _error_response(message: str) -> str:
+    """Return a structured JSON error that the LLM can interpret."""
+    return json.dumps(
+        {
+            "verdict": "ERROR",
+            "explanation": message,
+            "flagged": None,
+            "score": None,
+        },
+        indent=2,
+    )
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Tools
 # ─────────────────────────────────────────────────────────────────────────────
@@ -226,24 +293,53 @@ async def groundlens_check(params: CheckInput) -> str:
         - "Is this response hallucinated?"
           → provide question + response (no context needed)
     """
-    _ensure_loaded()
+    try:
+        _ensure_loaded()
+    except RuntimeError as exc:
+        logger.error("Model load failed during groundlens_check: %s", exc)
+        return _error_response(str(exc))
+
     from groundlens import compute_sgi, compute_dgi
 
     has_context = params.context is not None and params.context.strip() != ""
+    method = "SGI" if has_context else "DGI"
+    logger.info(
+        "groundlens_check: method=%s question=%d chars, response=%d chars%s",
+        method,
+        len(params.question),
+        len(params.response),
+        f", context={len(params.context)} chars" if has_context else "",
+    )
 
-    if has_context:
-        result = compute_sgi(
-            question=params.question,
-            context=params.context,
-            response=params.response,
+    start = time.perf_counter()
+    try:
+        if has_context:
+            result = compute_sgi(
+                question=params.question,
+                context=params.context,
+                response=params.response,
+            )
+            output = _format_sgi_result(result)
+        else:
+            result = compute_dgi(
+                question=params.question,
+                response=params.response,
+            )
+            output = _format_dgi_result(result)
+    except Exception as exc:
+        logger.error("Scoring failed in groundlens_check: %s", exc, exc_info=True)
+        return _error_response(
+            f"Scoring failed: {exc}. "
+            "This may happen with very short or unusual input. "
+            "Try rephrasing or providing more text."
         )
-        return _format_sgi_result(result)
-    else:
-        result = compute_dgi(
-            question=params.question,
-            response=params.response,
-        )
-        return _format_dgi_result(result)
+
+    elapsed_ms = (time.perf_counter() - start) * 1000
+    logger.info(
+        "groundlens_check complete: %s score=%.4f flagged=%s (%.0f ms)",
+        method, result.value, result.flagged, elapsed_ms,
+    )
+    return output
 
 
 @mcp.tool(
@@ -279,13 +375,38 @@ async def groundlens_sgi(params: SGIInput) -> str:
         - Checking if a summary is faithful to the source text
         - Auditing whether context was ignored in a customer support bot
     """
-    _ensure_loaded()
+    try:
+        _ensure_loaded()
+    except RuntimeError as exc:
+        logger.error("Model load failed during groundlens_sgi: %s", exc)
+        return _error_response(str(exc))
+
     from groundlens import compute_sgi
 
-    result = compute_sgi(
-        question=params.question,
-        context=params.context,
-        response=params.response,
+    logger.info(
+        "groundlens_sgi: question=%d chars, context=%d chars, response=%d chars",
+        len(params.question), len(params.context), len(params.response),
+    )
+
+    start = time.perf_counter()
+    try:
+        result = compute_sgi(
+            question=params.question,
+            context=params.context,
+            response=params.response,
+        )
+    except Exception as exc:
+        logger.error("SGI scoring failed: %s", exc, exc_info=True)
+        return _error_response(
+            f"SGI scoring failed: {exc}. "
+            "This may happen with very short or unusual input. "
+            "Try rephrasing or providing more text."
+        )
+
+    elapsed_ms = (time.perf_counter() - start) * 1000
+    logger.info(
+        "groundlens_sgi complete: score=%.4f flagged=%s (%.0f ms)",
+        result.value, result.flagged, elapsed_ms,
     )
     return _format_sgi_result(result)
 
@@ -323,12 +444,37 @@ async def groundlens_dgi(params: DGIInput) -> str:
         - Screening LLM outputs before showing them to users
         - Batch-evaluating model responses for quality
     """
-    _ensure_loaded()
+    try:
+        _ensure_loaded()
+    except RuntimeError as exc:
+        logger.error("Model load failed during groundlens_dgi: %s", exc)
+        return _error_response(str(exc))
+
     from groundlens import compute_dgi
 
-    result = compute_dgi(
-        question=params.question,
-        response=params.response,
+    logger.info(
+        "groundlens_dgi: question=%d chars, response=%d chars",
+        len(params.question), len(params.response),
+    )
+
+    start = time.perf_counter()
+    try:
+        result = compute_dgi(
+            question=params.question,
+            response=params.response,
+        )
+    except Exception as exc:
+        logger.error("DGI scoring failed: %s", exc, exc_info=True)
+        return _error_response(
+            f"DGI scoring failed: {exc}. "
+            "This may happen with very short or unusual input. "
+            "Try rephrasing or providing more text."
+        )
+
+    elapsed_ms = (time.perf_counter() - start) * 1000
+    logger.info(
+        "groundlens_dgi complete: score=%.4f flagged=%s (%.0f ms)",
+        result.value, result.flagged, elapsed_ms,
     )
     return _format_dgi_result(result)
 
@@ -339,6 +485,7 @@ async def groundlens_dgi(params: DGIInput) -> str:
 
 def main() -> None:
     """Run the groundlens MCP server (stdio transport)."""
+    logger.info("groundlens MCP server starting...")
     mcp.run()
 
 

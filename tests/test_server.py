@@ -16,6 +16,7 @@ from groundlens_mcp.server import (
     DGIInput,
     _format_sgi_result,
     _format_dgi_result,
+    _error_response,
     groundlens_check,
     groundlens_sgi,
     groundlens_dgi,
@@ -384,3 +385,137 @@ class TestOutputStructure:
         output = _format_dgi_result(result)
         parsed = json.loads(output)
         assert isinstance(parsed, dict)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Error handling
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class TestErrorResponse:
+    """Verify _error_response produces structured JSON errors."""
+
+    def test_returns_valid_json(self):
+        output = json.loads(_error_response("Something went wrong."))
+        assert output["verdict"] == "ERROR"
+        assert output["explanation"] == "Something went wrong."
+        assert output["flagged"] is None
+        assert output["score"] is None
+
+    def test_special_characters_in_message(self):
+        output = json.loads(_error_response('Error: "bad input" <>&'))
+        assert isinstance(output, dict)
+        assert '"bad input"' in output["explanation"]
+
+
+class TestModelLoadFailure:
+    """Verify tools return friendly errors when model loading fails."""
+
+    def test_check_returns_error_on_load_failure(self):
+        with patch(
+            "groundlens_mcp.server._ensure_loaded",
+            side_effect=RuntimeError("Could not load the embedding model."),
+        ):
+            params = CheckInput(question="Test?", response="Test answer.")
+            result = _run(groundlens_check(params))
+            output = json.loads(result)
+
+            assert output["verdict"] == "ERROR"
+            assert "embedding model" in output["explanation"]
+
+    def test_sgi_returns_error_on_load_failure(self):
+        with patch(
+            "groundlens_mcp.server._ensure_loaded",
+            side_effect=RuntimeError("groundlens library is not installed"),
+        ):
+            params = SGIInput(
+                question="Test?", context="Some context.", response="Answer.",
+            )
+            result = _run(groundlens_sgi(params))
+            output = json.loads(result)
+
+            assert output["verdict"] == "ERROR"
+            assert "not installed" in output["explanation"]
+
+    def test_dgi_returns_error_on_load_failure(self):
+        with patch(
+            "groundlens_mcp.server._ensure_loaded",
+            side_effect=RuntimeError("model download was interrupted"),
+        ):
+            params = DGIInput(question="Test?", response="Answer.")
+            result = _run(groundlens_dgi(params))
+            output = json.loads(result)
+
+            assert output["verdict"] == "ERROR"
+            assert "interrupted" in output["explanation"]
+
+
+class TestScoringFailure:
+    """Verify tools return friendly errors when scoring throws."""
+
+    @patch("groundlens_mcp.server._ensure_loaded")
+    def test_check_sgi_scoring_error(self, mock_load):
+        def boom(**kwargs):
+            raise ValueError("embedding dimension mismatch")
+
+        with patch.dict(
+            "sys.modules",
+            {"groundlens": MagicMock(compute_sgi=boom, compute_dgi=MagicMock())},
+        ):
+            params = CheckInput(
+                question="What?", response="Answer.", context="Some doc.",
+            )
+            result = _run(groundlens_check(params))
+            output = json.loads(result)
+
+            assert output["verdict"] == "ERROR"
+            assert "Scoring failed" in output["explanation"]
+            assert "embedding dimension mismatch" in output["explanation"]
+
+    @patch("groundlens_mcp.server._ensure_loaded")
+    def test_check_dgi_scoring_error(self, mock_load):
+        def boom(**kwargs):
+            raise RuntimeError("out of memory")
+
+        with patch.dict(
+            "sys.modules",
+            {"groundlens": MagicMock(compute_sgi=MagicMock(), compute_dgi=boom)},
+        ):
+            params = CheckInput(question="What?", response="Answer.")
+            result = _run(groundlens_check(params))
+            output = json.loads(result)
+
+            assert output["verdict"] == "ERROR"
+            assert "out of memory" in output["explanation"]
+
+    @patch("groundlens_mcp.server._ensure_loaded")
+    def test_sgi_scoring_error(self, mock_load):
+        def boom(**kwargs):
+            raise TypeError("unexpected type")
+
+        with patch.dict(
+            "sys.modules", {"groundlens": MagicMock(compute_sgi=boom)},
+        ):
+            params = SGIInput(
+                question="What?", context="Doc.", response="Answer.",
+            )
+            result = _run(groundlens_sgi(params))
+            output = json.loads(result)
+
+            assert output["verdict"] == "ERROR"
+            assert "unexpected type" in output["explanation"]
+
+    @patch("groundlens_mcp.server._ensure_loaded")
+    def test_dgi_scoring_error(self, mock_load):
+        def boom(**kwargs):
+            raise Exception("generic failure")
+
+        with patch.dict(
+            "sys.modules", {"groundlens": MagicMock(compute_dgi=boom)},
+        ):
+            params = DGIInput(question="What?", response="Answer.")
+            result = _run(groundlens_dgi(params))
+            output = json.loads(result)
+
+            assert output["verdict"] == "ERROR"
+            assert "generic failure" in output["explanation"]

@@ -16,7 +16,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install build hatchling hatch-vcs
-      - run: python -m build --no-isolation
-      - run: pip install dist/*.whl && groundlens-mcp --help || true
+      - run: pip install hatchling hatch-vcs
+      - run: hatchling build
       - uses: pypa/gh-action-pypi-publish@release/v1

@@ -22,10 +22,11 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install hatchling
-          pip install --no-build-isolation -e ".[test]"
+          pip install pydantic mcp pytest pytest-cov pytest-asyncio
 
       - name: Run tests with coverage
+        env:
+          PYTHONPATH: src
         run: |
           pytest tests/ -v --cov=groundlens_mcp --cov-report=xml --cov-report=term-missing --cov-fail-under=90
 

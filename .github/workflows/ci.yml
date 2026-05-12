@@ -23,8 +23,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install hatchling
-          pip install -e ".[test]" --no-build-isolation
-          pip install pytest pytest-cov pytest-asyncio
+          pip install --no-build-isolation -e ".[test]"
 
       - name: Run tests with coverage
         run: |

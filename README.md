@@ -1,11 +1,8 @@
-# Groundlens-mcp
-
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/groundlens-dev/groundlens-mcp/main/assets/logo_groundlens_mcp.png" alt="groundlens MCP" width="200">
-</p>
-<br/>
 <div align="center">
+  
+# Groundlens MCP
+
+
   
   [![Python](https://img.shields.io/pypi/pyversions/groundlens-mcp?style=flat-square)](https://pypi.org/project/groundlens-mcp/)
   [![CI](https://img.shields.io/github/actions/workflow/status/groundlens-dev/groundlens-mcp/ci.yml?branch=main&label=CI&style=flat-square)](https://github.com/groundlens-dev/groundlens-mcp/actions)

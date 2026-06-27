@@ -49,6 +49,20 @@ Or with [uv](https://docs.astral.sh/uv/):
 uv pip install groundlens-mcp
 ```
 
+### More clients
+
+**Claude Code** (CLI):
+
+```bash
+claude mcp add groundlens -- uvx groundlens-mcp
+```
+
+**Claude Desktop, Windsurf, Cline, or any MCP client** — add to its config:
+
+```json
+{ "mcpServers": { "groundlens": { "command": "uvx", "args": ["groundlens-mcp"] } } }
+```
+
 ## Configure your client
 
 ### Claude Desktop

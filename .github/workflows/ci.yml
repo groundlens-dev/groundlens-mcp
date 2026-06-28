@@ -21,7 +21,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
-        run: pip install pydantic mcp pytest pytest-cov pytest-asyncio
+        run: pip install --require-hashes -r requirements/ci.txt
       - name: Run tests with coverage
         env:
           PYTHONPATH: src

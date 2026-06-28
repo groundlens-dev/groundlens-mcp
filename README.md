@@ -13,7 +13,7 @@
 MCP server for [groundlens](https://groundlens.dev) — LLM hallucination detection for Claude Desktop, Cursor, Windsurf, and any MCP-compatible client.
 No second LLM. Deterministic. Same inputs → same scores, every time.
 
- ## One-click install
+## One-click install
 
 <div align="center">
   

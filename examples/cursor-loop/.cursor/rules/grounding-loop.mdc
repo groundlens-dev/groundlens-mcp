@@ -1,0 +1,22 @@
+---
+description: Verify every factual answer with the Groundlens MCP before finalizing it. A model cannot be its own judge of truth — the check must come from outside the model.
+alwaysApply: true
+---
+
+# The Grounding Loop
+
+When you answer a question that makes factual claims — especially when a source file is available in this project — do NOT trust your own draft. Verify it with the Groundlens MCP tools before showing the final answer.
+
+Steps:
+
+1. Draft your answer.
+2. Verify it:
+   - If the answer is based on a specific source file, call `groundlens_sgi` with the user's question as `question`, your drafted answer as `response`, and the source text as `context`.
+   - If there is no source (general chat), call `groundlens_dgi` with the `question` and `response`.
+   - If unsure which, call `groundlens_check`.
+3. Read the verdict returned by the tool:
+   - `GROUNDED` → present the answer, then add one line: `Grounding: GROUNDED (SGI/DGI = <score>)`.
+   - `HALLUCINATION RISK` → do NOT present the draft as fact. Either (a) revise the answer so it engages the source directly and re-check, or (b) tell the user plainly that the answer may not be grounded in the source, and show the score + the tool's explanation.
+4. Never hide the verdict. Always show the score, grounded or not.
+
+The point of this loop: self-verification is not enough. The anchor comes from outside the model.

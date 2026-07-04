@@ -1,13 +1,13 @@
 [build-system]
 requires = ["hatchling"]
-build-backend = "hatchling.backends"
+build-backend = "hatchling.build"
 
 [project]
 name = "groundlens-mcp"
 dynamic = ["version"]
 description = "MCP server for groundlens — LLM hallucination detection for Claude Desktop, Cursor, Windsurf, and any MCP client"
 readme = "README.md"
-license = "Apache"
+license = "Apache-2.0"
 requires-python = ">=3.10"
 authors = [
     { name = "Javier Marin", email = "javier@jmarin.info" },
@@ -25,7 +25,6 @@ keywords = [
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",

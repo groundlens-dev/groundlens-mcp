@@ -17,9 +17,12 @@ This is the everyday developer question — *"is my RAG making things up?"* — 
 ## Setup
 
 ```bash
-pip install -r requirements.txt
+pip install langchain langchain-community langchain-text-splitters langchain-chroma \
+            langchain-anthropic langchain-huggingface chromadb sentence-transformers pypdf
 export ANTHROPIC_API_KEY=sk-ant-...        # for the RAG's generation
 ```
+
+> These are the example's own dependencies (LangChain etc.), not dependencies of `groundlens-mcp`. They're listed here rather than in a committed `requirements.txt` on purpose — a checked-in manifest of the LangChain stack would drag the repo's security scan down with the LangChain ecosystem's CVEs, which have nothing to do with this package.
 
 Download the **Palantir – Q1 2026 Business Update** PDF into `data/` (see `data/README.md`), or drop in any PDF of your own.
 

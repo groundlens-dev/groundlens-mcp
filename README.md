@@ -198,7 +198,3 @@ python -m groundlens_mcp
 - [Documentation](https://docs.groundlens.dev)
 - [Website](https://groundlens.dev)
 - [Demo](https://huggingface.co/spaces/groundlens/groundlens-demo)
-
-## License
-
-MIT

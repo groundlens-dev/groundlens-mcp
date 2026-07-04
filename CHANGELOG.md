@@ -5,6 +5,21 @@ All notable changes to groundlens-mcp are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 groundlens-mcp uses [Calendar Versioning](https://calver.org/) with the format `YYYY.M.D`.
 
+## 2026.7.4
+
+### Changed
+
+- **License** is now Apache-2.0 across the project (LICENSE, `pyproject.toml`, README badge).
+
+### Fixed
+
+- **`pyproject.toml`**: corrected `build-backend` to `hatchling.build` and the license metadata to the SPDX expression `Apache-2.0`; removed a stale MIT license classifier.
+
+### Added
+
+- **Official MCP Registry** support: `server.json` and the `mcp-name` reference in the README for package-ownership validation.
+- **Cursor example** (`examples/cursor-loop/`): a drop-in `.cursor/` config + rule that makes Cursor verify every answer with Groundlens (the self-verification loop).
+
 ## 2026.5.18
 
 The 2026.5.x series is the initial public release of the groundlens MCP server.

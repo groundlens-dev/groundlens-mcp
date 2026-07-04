@@ -1,3 +1,4 @@
+<!-- mcp-name: io.github.groundlens-dev/groundlens-mcp -->
 <div align="center">
   
 # Groundlens MCP

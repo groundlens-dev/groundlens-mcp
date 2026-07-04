@@ -1,6 +1,6 @@
 # RAG grounding audit — with the Groundlens MCP, from your editor
 
-A real, minimal RAG pipeline — **LangChain + Chroma + Claude** — over a current, fact-dense document (the Palantir Q1 2026 update). The pipeline has **no grounding check in it**. You audit its answers for hallucination **from Claude Code**, using the Groundlens MCP, without changing a line of the pipeline.
+A real, minimal RAG pipeline — **LangChain + Chroma + Claude** — over a current, fact-dense document (the Palantir Q1 2026 10-Q). The pipeline has **no grounding check in it**. You audit its answers for hallucination **from Claude Code**, using the Groundlens MCP, without changing a line of the pipeline.
 
 This is the everyday developer question — *"is my RAG making things up?"* — answered deterministically, in the editor, on demand.
 
@@ -34,8 +34,8 @@ python rag.py
 It indexes the PDF, answers the questions in `questions.txt`, prints them, and logs each turn to `outputs/runs.jsonl` as `{question, retrieved_context, answer}`.
 
 `questions.txt` deliberately mixes two kinds:
-- **Grounded** questions (revenue, Rule of 40, ShipOS) — answerable from the report.
-- **Bait** questions (net margin, new-customer count, market cap) — *not* in the report. A weak RAG invents a number here; that's the hallucination you want to catch.
+- **Grounded** questions (revenue, net income, EPS, cash) — answerable straight from the 10-Q.
+- **Bait** questions (market cap, Rule of 40, ShipOS) — *not* in a 10-Q. A weak RAG invents a number here; that's the hallucination you want to catch.
 
 ## Audit the grounding (the point)
 

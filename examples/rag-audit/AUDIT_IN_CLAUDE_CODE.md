@@ -23,8 +23,8 @@ claude mcp add groundlens -- uvx groundlens-mcp
    > Read `outputs/runs.jsonl`. For each entry, call the `groundlens_sgi` tool with `question` = the question, `response` = the answer, and `context` = the retrieved_context. Build a table with columns: question, verdict, score. Flag every entry below the grounded threshold, and for each flagged one quote the exact sentence in the answer that the context does not support.
 
 3. **Watch what happens.** Claude Code calls the Groundlens MCP once per row — deterministically, no second LLM grading the output — and hands you a grounding report:
-   - The three **grounded** questions (revenue, Rule of 40, ShipOS) pass with high SGI.
-   - The three **bait** questions (net margin, new-customer count, market cap) are **not in the report**. If your RAG invented a number, Groundlens flags it `HALLUCINATION RISK` and points at the unsupported sentence. If your RAG correctly said "I don't know," it passes — and now you have proof.
+   - The **grounded** questions (revenue, net income, EPS, cash) pass with high SGI.
+   - The **bait** questions (market cap, Rule of 40, ShipOS) are **not in a 10-Q**. If your RAG invented a number, Groundlens flags it `HALLUCINATION RISK` and points at the unsupported sentence. If your RAG correctly said "I don't know," it passes — and now you have proof.
 
 ## Why this is the sell
 

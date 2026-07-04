@@ -116,6 +116,10 @@ Add to `.cursor/mcp.json` in your project:
 }
 ```
 
+Example with Cursor:
+
+- [Cursor self-verification loop](examples/cursor-loop/) — drop-in `.cursor/` config + rule that makes Cursor verify every answer with Groundlens.
+
 ### Windsurf
 
 Add to `~/.codeium/windsurf/mcp_config.json`:

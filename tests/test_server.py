@@ -4,44 +4,36 @@ from __future__ import annotations
 
 import asyncio
 import json
-from dataclasses import dataclass
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
-from pydantic import ValidationError
-
+from groundlens.score import DGIResult, SGIResult
 from groundlens_mcp.server import (
     CheckInput,
-    SGIInput,
     DGIInput,
-    _format_sgi_result,
-    _format_dgi_result,
+    SGIInput,
     _error_response,
+    _format_result,
     groundlens_check,
-    groundlens_sgi,
     groundlens_dgi,
+    groundlens_sgi,
 )
-
+from pydantic import ValidationError
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Fake result objects (mirror groundlens return types)
+# Real result builders (verdict() dispatches on the real dataclasses, so the
+# tests must use them — they are pure-Python and need no embedding model).
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-@dataclass
-class FakeSGIResult:
-    value: float
-    flagged: bool
-    q_dist: float
-    ctx_dist: float
-    explanation: str
+def sgi(value, flagged, q_dist=0.5, ctx_dist=0.5):
+    return SGIResult(
+        value=value, normalized=0.5, flagged=flagged, q_dist=q_dist, ctx_dist=ctx_dist
+    )
 
 
-@dataclass
-class FakeDGIResult:
-    value: float
-    flagged: bool
-    explanation: str
+def dgi(value, flagged, magnitude=1.0):
+    return DGIResult(value=value, normalized=0.5, flagged=flagged, magnitude=magnitude)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -62,16 +54,12 @@ class TestCheckInput:
         assert inp.context == "Policy covers fire and flood."
 
     def test_valid_without_context(self):
-        inp = CheckInput(
-            question="Capital of France?",
-            response="Paris.",
-        )
+        inp = CheckInput(question="Capital of France?", response="Paris.")
         assert inp.context is None
 
     def test_strips_whitespace(self):
         inp = CheckInput(
-            question="  What is covered?  ",
-            response="  Fire and flood.  ",
+            question="  What is covered?  ", response="  Fire and flood.  "
         )
         assert inp.question == "What is covered?"
         assert inp.response == "Fire and flood."
@@ -106,11 +94,7 @@ class TestSGIInput:
 
     def test_rejects_empty_context(self):
         with pytest.raises(ValidationError):
-            SGIInput(
-                question="What?",
-                context="",
-                response="Answer.",
-            )
+            SGIInput(question="What?", context="", response="Answer.")
 
     def test_rejects_missing_context(self):
         with pytest.raises(ValidationError):
@@ -130,96 +114,75 @@ class TestDGIInput:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Result formatting
+# Result formatting — the canonical VERIFICATION verdict (groundlens.verdict)
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-class TestFormatSGIResult:
-    """Verify SGI result formatting produces valid JSON with expected fields."""
+class TestFormatResultSGI:
+    """SGI results render as the plain-language VERIFICATION verdict."""
 
-    def test_grounded_result(self):
-        result = FakeSGIResult(
-            value=1.2345,
-            flagged=False,
-            q_dist=0.5678,
-            ctx_dist=0.4321,
-            explanation="Response engaged with context.",
+    def test_supported(self):
+        out = json.loads(
+            _format_result(sgi(value=1.23, flagged=False, q_dist=0.57, ctx_dist=0.43))
         )
-        output = json.loads(_format_sgi_result(result))
+        assert out["verification"] == "Supported by the document"
+        assert out["level"] == "ok"
+        assert out["flagged"] is False
+        assert out["method"] == "Semantic Grounding Index"
+        assert out["score"] == 1.23
+        assert out["headline"].startswith("VERIFICATION: Supported by the document")
+        assert "distance to source" in out["detail"]
 
-        assert output["verdict"] == "GROUNDED"
-        assert output["flagged"] is False
-        assert output["method"] == "SGI (Semantic Grounding Index)"
-        assert output["score"] == 1.2345
-        assert output["threshold"] == 0.95
-        assert output["detail"]["q_dist"] == 0.5678
-        assert output["detail"]["ctx_dist"] == 0.4321
-        assert output["detail"]["interpretation"] == "Response engaged with context."
-        assert "what_this_means" in output
+    def test_partly_supported(self):
+        out = json.loads(_format_result(sgi(value=1.05, flagged=False)))
+        assert out["verification"] == "Partly supported"
+        assert out["level"] == "review"
 
-    def test_flagged_result(self):
-        result = FakeSGIResult(
-            value=0.7123,
-            flagged=True,
-            q_dist=0.3,
-            ctx_dist=0.42,
-            explanation="Response stayed near the question.",
+    def test_not_supported(self):
+        out = json.loads(
+            _format_result(sgi(value=0.71, flagged=True, q_dist=0.3, ctx_dist=0.42))
         )
-        output = json.loads(_format_sgi_result(result))
+        assert out["verification"] == "Not supported by the document"
+        assert out["level"] == "risk"
+        assert out["flagged"] is True
 
-        assert output["verdict"] == "HALLUCINATION RISK"
-        assert output["flagged"] is True
-        assert output["score"] == 0.7123
-        assert "not be based on the source material" in output["explanation"]
+    def test_score_two_decimals(self):
+        out = json.loads(_format_result(sgi(value=1.239, flagged=False)))
+        assert out["score"] == 1.24
 
-    def test_score_rounding(self):
-        result = FakeSGIResult(
-            value=0.123456789,
-            flagged=False,
-            q_dist=0.111111111,
-            ctx_dist=0.222222222,
-            explanation="Test.",
-        )
-        output = json.loads(_format_sgi_result(result))
-
-        assert output["score"] == 0.1235
-        assert output["detail"]["q_dist"] == 0.1111
-        assert output["detail"]["ctx_dist"] == 0.2222
+    def test_no_jargon_in_verification(self):
+        out = json.loads(_format_result(sgi(value=0.5, flagged=True)))
+        assert "hallucinat" not in out["verification"].lower()
+        assert "grounding" not in out["verification"].lower()
 
 
-class TestFormatDGIResult:
-    """Verify DGI result formatting produces valid JSON with expected fields."""
+class TestFormatResultDGI:
+    """DGI results render as the plain-language VERIFICATION verdict."""
 
-    def test_grounded_result(self):
-        result = FakeDGIResult(
-            value=0.4521,
-            flagged=False,
-            explanation="Positive directional alignment.",
-        )
-        output = json.loads(_format_dgi_result(result))
+    def test_looks_grounded(self):
+        out = json.loads(_format_result(dgi(value=0.45, flagged=False, magnitude=1.0)))
+        assert out["verification"] == "Looks grounded"
+        assert out["level"] == "ok"
+        assert out["method"] == "Directional Grounding Index"
+        assert out["score"] == 0.45
+        assert "note" in out
+        assert "No source" in out["note"]
+        assert "commitment" in out["detail"]
 
-        assert output["verdict"] == "GROUNDED"
-        assert output["flagged"] is False
-        assert output["method"] == "DGI (Directional Grounding Index)"
-        assert output["score"] == 0.4521
-        assert output["threshold"] == 0.30
-        assert output["detail"]["interpretation"] == "Positive directional alignment."
+    def test_partly_grounded(self):
+        out = json.loads(_format_result(dgi(value=0.18, flagged=True)))
+        assert out["verification"] == "Partly grounded"
+        assert out["level"] == "review"
 
-    def test_flagged_result(self):
-        result = FakeDGIResult(
-            value=0.1234,
-            flagged=True,
-            explanation="Anomalous displacement pattern.",
-        )
-        output = json.loads(_format_dgi_result(result))
-
-        assert output["verdict"] == "HALLUCINATION RISK"
-        assert output["flagged"] is True
-        assert "geometric patterns associated with hallucination" in output["explanation"]
+    def test_not_grounded(self):
+        out = json.loads(_format_result(dgi(value=-0.12, flagged=True)))
+        assert out["verification"] == "Not grounded"
+        assert out["level"] == "risk"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Tool routing (mock groundlens to avoid loading the model)
+# Tool routing — patch compute_sgi/compute_dgi to return real results, so the
+# real verdict() renders. _ensure_loaded is patched to skip the model.
 # ─────────────────────────────────────────────────────────────────────────────
 
 
@@ -232,58 +195,31 @@ class TestGroundlensCheck:
     """Verify groundlens_check routes to SGI or DGI based on context."""
 
     @patch("groundlens_mcp.server._ensure_loaded")
-    @patch("groundlens_mcp.server.compute_sgi", create=True)
-    def test_routes_to_sgi_when_context_provided(self, mock_sgi, mock_load):
-        fake = FakeSGIResult(
-            value=1.05, flagged=False, q_dist=0.5, ctx_dist=0.4,
-            explanation="Grounded.",
-        )
-
-        with patch("groundlens_mcp.server.compute_sgi", return_value=fake) as m:
-            with patch.dict("sys.modules", {"groundlens": MagicMock(compute_sgi=m, compute_dgi=MagicMock())}):
-                params = CheckInput(
-                    question="What is covered?",
-                    response="Fire and flood.",
-                    context="Policy covers fire and flood.",
-                )
-                result = _run(groundlens_check(params))
-                output = json.loads(result)
-
-                assert output["method"] == "SGI (Semantic Grounding Index)"
-                assert output["verdict"] == "GROUNDED"
+    def test_routes_to_sgi_when_context_provided(self, mock_load):
+        with patch("groundlens.compute_sgi", return_value=sgi(1.05, False)):
+            params = CheckInput(
+                question="What is covered?",
+                response="Fire and flood.",
+                context="Policy covers fire and flood.",
+            )
+            output = json.loads(_run(groundlens_check(params)))
+            assert output["method"] == "Semantic Grounding Index"
 
     @patch("groundlens_mcp.server._ensure_loaded")
-    @patch("groundlens_mcp.server.compute_dgi", create=True)
-    def test_routes_to_dgi_when_no_context(self, mock_dgi, mock_load):
-        fake = FakeDGIResult(value=0.45, flagged=False, explanation="Grounded.")
-
-        with patch("groundlens_mcp.server.compute_dgi", return_value=fake) as m:
-            with patch.dict("sys.modules", {"groundlens": MagicMock(compute_sgi=MagicMock(), compute_dgi=m)}):
-                params = CheckInput(
-                    question="Capital of France?",
-                    response="Paris.",
-                )
-                result = _run(groundlens_check(params))
-                output = json.loads(result)
-
-                assert output["method"] == "DGI (Directional Grounding Index)"
+    def test_routes_to_dgi_when_no_context(self, mock_load):
+        with patch("groundlens.compute_dgi", return_value=dgi(0.45, False)):
+            params = CheckInput(question="Capital of France?", response="Paris.")
+            output = json.loads(_run(groundlens_check(params)))
+            assert output["method"] == "Directional Grounding Index"
 
     @patch("groundlens_mcp.server._ensure_loaded")
-    @patch("groundlens_mcp.server.compute_dgi", create=True)
-    def test_routes_to_dgi_when_context_is_whitespace(self, mock_dgi, mock_load):
-        fake = FakeDGIResult(value=0.45, flagged=False, explanation="Grounded.")
-
-        with patch("groundlens_mcp.server.compute_dgi", return_value=fake) as m:
-            with patch.dict("sys.modules", {"groundlens": MagicMock(compute_sgi=MagicMock(), compute_dgi=m)}):
-                params = CheckInput(
-                    question="Capital of France?",
-                    response="Paris.",
-                    context="   ",
-                )
-                result = _run(groundlens_check(params))
-                output = json.loads(result)
-
-                assert output["method"] == "DGI (Directional Grounding Index)"
+    def test_routes_to_dgi_when_context_is_whitespace(self, mock_load):
+        with patch("groundlens.compute_dgi", return_value=dgi(0.45, False)):
+            params = CheckInput(
+                question="Capital of France?", response="Paris.", context="   "
+            )
+            output = json.loads(_run(groundlens_check(params)))
+            assert output["method"] == "Directional Grounding Index"
 
 
 class TestGroundlensSGI:
@@ -291,21 +227,18 @@ class TestGroundlensSGI:
 
     @patch("groundlens_mcp.server._ensure_loaded")
     def test_returns_sgi_result(self, mock_load):
-        fake = FakeSGIResult(
-            value=0.85, flagged=True, q_dist=0.3, ctx_dist=0.35,
-            explanation="Context may have been ignored.",
-        )
-
-        with patch.dict("sys.modules", {"groundlens": MagicMock(compute_sgi=MagicMock(return_value=fake))}):
+        with patch(
+            "groundlens.compute_sgi",
+            return_value=sgi(0.85, True, q_dist=0.3, ctx_dist=0.35),
+        ):
             params = SGIInput(
                 question="What is covered?",
                 context="Policy covers fire.",
                 response="I'm not sure.",
             )
-            result = _run(groundlens_sgi(params))
-            output = json.loads(result)
-
-            assert output["verdict"] == "HALLUCINATION RISK"
+            output = json.loads(_run(groundlens_sgi(params)))
+            assert output["verification"] == "Not supported by the document"
+            assert output["level"] == "risk"
             assert output["flagged"] is True
             assert output["score"] == 0.85
 
@@ -315,20 +248,13 @@ class TestGroundlensDGI:
 
     @patch("groundlens_mcp.server._ensure_loaded")
     def test_returns_dgi_result(self, mock_load):
-        fake = FakeDGIResult(
-            value=0.15, flagged=True,
-            explanation="Anomalous pattern.",
-        )
-
-        with patch.dict("sys.modules", {"groundlens": MagicMock(compute_dgi=MagicMock(return_value=fake))}):
+        with patch("groundlens.compute_dgi", return_value=dgi(0.15, True)):
             params = DGIInput(
                 question="Who invented the internet?",
                 response="The internet was invented by Napoleon.",
             )
-            result = _run(groundlens_dgi(params))
-            output = json.loads(result)
-
-            assert output["verdict"] == "HALLUCINATION RISK"
+            output = json.loads(_run(groundlens_dgi(params)))
+            assert output["verification"] == "Partly grounded"
             assert output["flagged"] is True
             assert output["score"] == 0.15
 
@@ -341,49 +267,33 @@ class TestGroundlensDGI:
 class TestOutputStructure:
     """Verify all required fields are present in formatted outputs."""
 
-    REQUIRED_SGI_FIELDS = {
-        "verdict", "explanation", "method", "score", "threshold",
-        "flagged", "detail", "what_this_means",
+    REQUIRED_FIELDS = {
+        "verification",
+        "message",
+        "headline",
+        "level",
+        "method",
+        "score",
+        "flagged",
+        "detail",
     }
-    REQUIRED_SGI_DETAIL_FIELDS = {"q_dist", "ctx_dist", "interpretation"}
-
-    REQUIRED_DGI_FIELDS = {
-        "verdict", "explanation", "method", "score", "threshold",
-        "flagged", "detail", "what_this_means",
-    }
-    REQUIRED_DGI_DETAIL_FIELDS = {"interpretation"}
 
     def test_sgi_has_all_fields(self):
-        result = FakeSGIResult(
-            value=1.0, flagged=False, q_dist=0.5, ctx_dist=0.5,
-            explanation="Test.",
-        )
-        output = json.loads(_format_sgi_result(result))
-        assert self.REQUIRED_SGI_FIELDS.issubset(output.keys())
-        assert self.REQUIRED_SGI_DETAIL_FIELDS.issubset(output["detail"].keys())
+        out = json.loads(_format_result(sgi(1.0, False)))
+        assert self.REQUIRED_FIELDS.issubset(out.keys())
+        assert isinstance(out["detail"], str)
 
-    def test_dgi_has_all_fields(self):
-        result = FakeDGIResult(value=0.5, flagged=False, explanation="Test.")
-        output = json.loads(_format_dgi_result(result))
-        assert self.REQUIRED_DGI_FIELDS.issubset(output.keys())
-        assert self.REQUIRED_DGI_DETAIL_FIELDS.issubset(output["detail"].keys())
+    def test_dgi_has_all_fields_plus_note(self):
+        out = json.loads(_format_result(dgi(0.5, False)))
+        assert self.REQUIRED_FIELDS.issubset(out.keys())
+        assert "note" in out
 
     def test_sgi_output_is_valid_json(self):
-        result = FakeSGIResult(
-            value=1.0, flagged=False, q_dist=0.5, ctx_dist=0.5,
-            explanation='Contains "quotes" and special chars: <>&',
-        )
-        output = _format_sgi_result(result)
-        parsed = json.loads(output)
+        parsed = json.loads(_format_result(sgi(1.0, False)))
         assert isinstance(parsed, dict)
 
     def test_dgi_output_is_valid_json(self):
-        result = FakeDGIResult(
-            value=0.5, flagged=False,
-            explanation='Contains "quotes" and special chars: <>&',
-        )
-        output = _format_dgi_result(result)
-        parsed = json.loads(output)
+        parsed = json.loads(_format_result(dgi(0.5, False)))
         assert isinstance(parsed, dict)
 
 
@@ -417,9 +327,7 @@ class TestModelLoadFailure:
             side_effect=RuntimeError("Could not load the embedding model."),
         ):
             params = CheckInput(question="Test?", response="Test answer.")
-            result = _run(groundlens_check(params))
-            output = json.loads(result)
-
+            output = json.loads(_run(groundlens_check(params)))
             assert output["verdict"] == "ERROR"
             assert "embedding model" in output["explanation"]
 
@@ -429,11 +337,9 @@ class TestModelLoadFailure:
             side_effect=RuntimeError("groundlens library is not installed"),
         ):
             params = SGIInput(
-                question="Test?", context="Some context.", response="Answer.",
+                question="Test?", context="Some context.", response="Answer."
             )
-            result = _run(groundlens_sgi(params))
-            output = json.loads(result)
-
+            output = json.loads(_run(groundlens_sgi(params)))
             assert output["verdict"] == "ERROR"
             assert "not installed" in output["explanation"]
 
@@ -443,9 +349,7 @@ class TestModelLoadFailure:
             side_effect=RuntimeError("model download was interrupted"),
         ):
             params = DGIInput(question="Test?", response="Answer.")
-            result = _run(groundlens_dgi(params))
-            output = json.loads(result)
-
+            output = json.loads(_run(groundlens_dgi(params)))
             assert output["verdict"] == "ERROR"
             assert "interrupted" in output["explanation"]
 
@@ -463,11 +367,9 @@ class TestScoringFailure:
             {"groundlens": MagicMock(compute_sgi=boom, compute_dgi=MagicMock())},
         ):
             params = CheckInput(
-                question="What?", response="Answer.", context="Some doc.",
+                question="What?", response="Answer.", context="Some doc."
             )
-            result = _run(groundlens_check(params))
-            output = json.loads(result)
-
+            output = json.loads(_run(groundlens_check(params)))
             assert output["verdict"] == "ERROR"
             assert "Scoring failed" in output["explanation"]
             assert "embedding dimension mismatch" in output["explanation"]
@@ -482,9 +384,7 @@ class TestScoringFailure:
             {"groundlens": MagicMock(compute_sgi=MagicMock(), compute_dgi=boom)},
         ):
             params = CheckInput(question="What?", response="Answer.")
-            result = _run(groundlens_check(params))
-            output = json.loads(result)
-
+            output = json.loads(_run(groundlens_check(params)))
             assert output["verdict"] == "ERROR"
             assert "out of memory" in output["explanation"]
 
@@ -493,15 +393,9 @@ class TestScoringFailure:
         def boom(**kwargs):
             raise TypeError("unexpected type")
 
-        with patch.dict(
-            "sys.modules", {"groundlens": MagicMock(compute_sgi=boom)},
-        ):
-            params = SGIInput(
-                question="What?", context="Doc.", response="Answer.",
-            )
-            result = _run(groundlens_sgi(params))
-            output = json.loads(result)
-
+        with patch.dict("sys.modules", {"groundlens": MagicMock(compute_sgi=boom)}):
+            params = SGIInput(question="What?", context="Doc.", response="Answer.")
+            output = json.loads(_run(groundlens_sgi(params)))
             assert output["verdict"] == "ERROR"
             assert "unexpected type" in output["explanation"]
 
@@ -510,12 +404,8 @@ class TestScoringFailure:
         def boom(**kwargs):
             raise Exception("generic failure")
 
-        with patch.dict(
-            "sys.modules", {"groundlens": MagicMock(compute_dgi=boom)},
-        ):
+        with patch.dict("sys.modules", {"groundlens": MagicMock(compute_dgi=boom)}):
             params = DGIInput(question="What?", response="Answer.")
-            result = _run(groundlens_dgi(params))
-            output = json.loads(result)
-
+            output = json.loads(_run(groundlens_dgi(params)))
             assert output["verdict"] == "ERROR"
             assert "generic failure" in output["explanation"]

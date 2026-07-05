@@ -18,10 +18,9 @@ from __future__ import annotations
 import json
 import logging
 import time
-from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Logging
@@ -51,6 +50,7 @@ mcp = FastMCP("groundlens_mcp")
 # Input models
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 class CheckInput(BaseModel):
     """Input for the main hallucination check tool."""
 
@@ -68,7 +68,7 @@ class CheckInput(BaseModel):
         min_length=1,
         max_length=50000,
     )
-    context: Optional[str] = Field(
+    context: str | None = Field(
         default=None,
         description=(
             "Source material the LLM was given (e.g., a document, "
@@ -154,13 +154,13 @@ def _ensure_loaded() -> None:
 
         # Warm up with a trivial call to ensure model is fully loaded
         from groundlens import compute_dgi
+
         compute_dgi(question="warmup", response="warmup")
 
     except ImportError as exc:
         logger.error("groundlens library not installed: %s", exc)
         raise RuntimeError(
-            "The groundlens library is not installed. "
-            "Run: pip install groundlens"
+            "The groundlens library is not installed. Run: pip install groundlens"
         ) from exc
     except Exception as exc:
         logger.error("Failed to load embedding model: %s", exc)
@@ -179,66 +179,34 @@ def _ensure_loaded() -> None:
 # Result formatting
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _format_sgi_result(result) -> str:
-    """Format an SGIResult into a human-readable + machine-parseable response."""
-    verdict = "GROUNDED" if not result.flagged else "HALLUCINATION RISK"
-    plain = (
-        "The response appears to be grounded in the source material."
-        if not result.flagged
-        else "The response may not be based on the source material provided."
-    )
 
-    return json.dumps(
-        {
-            "verdict": verdict,
-            "explanation": plain,
-            "method": "SGI (Semantic Grounding Index)",
-            "score": round(result.value, 4),
-            "threshold": 0.95,
-            "flagged": result.flagged,
-            "detail": {
-                "q_dist": round(result.q_dist, 4),
-                "ctx_dist": round(result.ctx_dist, 4),
-                "interpretation": result.explanation,
-            },
-            "what_this_means": (
-                "SGI measures whether the response engaged with the source context "
-                "or just rephrased the question. "
-                "Score > 0.95 = context was used. Score < 0.95 = context may have been ignored."
-            ),
-        },
-        indent=2,
-    )
+def _format_result(result) -> str:
+    """Render a groundlens SGI/DGI result as the canonical VERIFICATION verdict.
 
+    All wording comes from ``groundlens.verdict`` — the single source of truth
+    shared with the library, the docs, and the remote MCP — so the phrasing is
+    identical everywhere. The plain ``verification`` label and ``message`` are
+    what a person reads; ``score``, ``level``, ``flagged`` and ``detail`` are for
+    programmatic use.
+    """
+    from groundlens import verdict as _verdict
 
-def _format_dgi_result(result) -> str:
-    """Format a DGIResult into a human-readable + machine-parseable response."""
-    verdict = "GROUNDED" if not result.flagged else "HALLUCINATION RISK"
-    plain = (
-        "The response follows patterns typical of grounded, factual answers."
-        if not result.flagged
-        else "The response shows geometric patterns associated with hallucination."
-    )
-
-    return json.dumps(
-        {
-            "verdict": verdict,
-            "explanation": plain,
-            "method": "DGI (Directional Grounding Index)",
-            "score": round(result.value, 4),
-            "threshold": 0.30,
-            "flagged": result.flagged,
-            "detail": {
-                "interpretation": result.explanation,
-            },
-            "what_this_means": (
-                "DGI measures whether the question-to-response displacement "
-                "aligns with patterns seen in verified grounded responses. "
-                "Score > 0.30 = grounded pattern. Score < 0.30 = anomalous pattern."
-            ),
-        },
-        indent=2,
-    )
+    v = _verdict(result)
+    payload = {
+        "verification": v.label,  # e.g. "Supported by the document"
+        "message": v.message,  # plain, jargon-free explanation
+        "headline": v.line(),  # "VERIFICATION: <label> (<name> - <ABBR>=x.xx)"
+        "level": v.level,  # "ok" | "review" | "risk"
+        "method": v.metric_name,  # "Semantic Grounding Index" / "Directional Grounding Index"
+        "score": round(v.score, 2),
+        "flagged": result.flagged,
+        "detail": v.detail,  # raw components (q_dist/ctx_dist or magnitude)
+    }
+    if v.note:
+        payload["note"] = (
+            v.note
+        )  # DGI: "No source given — judged by the shape of the answer."
+    return json.dumps(payload, indent=2, ensure_ascii=False)
 
 
 def _error_response(message: str) -> str:
@@ -257,6 +225,7 @@ def _error_response(message: str) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 # Tools
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @mcp.tool(
     name="groundlens_check",
@@ -299,7 +268,7 @@ async def groundlens_check(params: CheckInput) -> str:
         logger.error("Model load failed during groundlens_check: %s", exc)
         return _error_response(str(exc))
 
-    from groundlens import compute_sgi, compute_dgi
+    from groundlens import compute_dgi, compute_sgi
 
     has_context = params.context is not None and params.context.strip() != ""
     method = "SGI" if has_context else "DGI"
@@ -319,13 +288,13 @@ async def groundlens_check(params: CheckInput) -> str:
                 context=params.context,
                 response=params.response,
             )
-            output = _format_sgi_result(result)
+            output = _format_result(result)
         else:
             result = compute_dgi(
                 question=params.question,
                 response=params.response,
             )
-            output = _format_dgi_result(result)
+            output = _format_result(result)
     except Exception as exc:
         logger.error("Scoring failed in groundlens_check: %s", exc, exc_info=True)
         return _error_response(
@@ -337,7 +306,10 @@ async def groundlens_check(params: CheckInput) -> str:
     elapsed_ms = (time.perf_counter() - start) * 1000
     logger.info(
         "groundlens_check complete: %s score=%.4f flagged=%s (%.0f ms)",
-        method, result.value, result.flagged, elapsed_ms,
+        method,
+        result.value,
+        result.flagged,
+        elapsed_ms,
     )
     return output
 
@@ -385,7 +357,9 @@ async def groundlens_sgi(params: SGIInput) -> str:
 
     logger.info(
         "groundlens_sgi: question=%d chars, context=%d chars, response=%d chars",
-        len(params.question), len(params.context), len(params.response),
+        len(params.question),
+        len(params.context),
+        len(params.response),
     )
 
     start = time.perf_counter()
@@ -406,9 +380,11 @@ async def groundlens_sgi(params: SGIInput) -> str:
     elapsed_ms = (time.perf_counter() - start) * 1000
     logger.info(
         "groundlens_sgi complete: score=%.4f flagged=%s (%.0f ms)",
-        result.value, result.flagged, elapsed_ms,
+        result.value,
+        result.flagged,
+        elapsed_ms,
     )
-    return _format_sgi_result(result)
+    return _format_result(result)
 
 
 @mcp.tool(
@@ -454,7 +430,8 @@ async def groundlens_dgi(params: DGIInput) -> str:
 
     logger.info(
         "groundlens_dgi: question=%d chars, response=%d chars",
-        len(params.question), len(params.response),
+        len(params.question),
+        len(params.response),
     )
 
     start = time.perf_counter()
@@ -474,14 +451,17 @@ async def groundlens_dgi(params: DGIInput) -> str:
     elapsed_ms = (time.perf_counter() - start) * 1000
     logger.info(
         "groundlens_dgi complete: score=%.4f flagged=%s (%.0f ms)",
-        result.value, result.flagged, elapsed_ms,
+        result.value,
+        result.flagged,
+        elapsed_ms,
     )
-    return _format_dgi_result(result)
+    return _format_result(result)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Entry point
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def main() -> None:
     """Run the groundlens MCP server (stdio transport)."""

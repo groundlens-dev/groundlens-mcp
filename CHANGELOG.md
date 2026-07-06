@@ -5,13 +5,13 @@ All notable changes to groundlens-mcp are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 groundlens-mcp uses [Calendar Versioning](https://calver.org/) with the format `YYYY.M.D`.
 
-## 2026.7.5
+## 2026.7.6
 
 ### Changed
 
-- **Tool output now renders the canonical `VERIFICATION` verdict** from
-  `groundlens.verdict` (requires `groundlens>=2026.7.5`). The three tools return
-  a plain-language `verification` label (`Supported by the document` / `Partly
+- **Tool output now renders the canonical `CHECK`** from
+  `groundlens.check` (requires `groundlens>=2026.7.6`). The three tools return
+  a plain-language `check` label (`Supported by the document` / `Partly
   supported` / `Not supported by the document` for SGI; `Looks grounded` /
   `Partly grounded` / `Not grounded` for DGI), a `message`, a `level`
   (`ok`/`review`/`risk`), the score, and the raw components in `detail`. Replaces

@@ -145,15 +145,15 @@ Once configured, ask your ai assistant:
 
 > "Run a hallucination check on this ChatGPT output"
 
-The tools return JSON with a plain-language **VERIFICATION** verdict, a numeric score, and the raw components. The wording comes from `groundlens.verdict` — the same source of truth used by the library and docs, so it reads identically everywhere.
+The tools return JSON with a plain-language **CHECK** check, a numeric score, and the raw components. The wording comes from `groundlens.check` — the same source of truth used by the library and docs, so it reads identically everywhere.
 
 ### Example output
 
 ```json
 {
-  "verification": "Not supported by the document",
+  "check": "Not supported by the document",
   "message": "The answer stays closer to the question than to the source, so it may not come from the document. Check it before trusting it.",
-  "headline": "VERIFICATION: Not supported by the document (Semantic Grounding Index - SGI=0.87)",
+  "headline": "CHECK: Not supported by the document (Semantic Grounding Index - SGI=0.87)",
   "level": "risk",
   "method": "Semantic Grounding Index",
   "score": 0.87,
@@ -162,7 +162,7 @@ The tools return JSON with a plain-language **VERIFICATION** verdict, a numeric 
 }
 ```
 
-The verdict `level` is `ok` / `review` / `risk` (from the calibrated thresholds). For context-free DGI checks the verdict reads `Looks grounded` / `Partly grounded` / `Not grounded`, plus a `note` that no source was provided.
+The check `level` is `ok` / `review` / `risk` (from the calibrated thresholds). For context-free DGI checks the check reads `Looks grounded` / `Partly grounded` / `Not grounded`, plus a `note` that no source was provided.
 
 ## How it works
 

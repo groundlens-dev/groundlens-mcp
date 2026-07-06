@@ -1,3 +1,3 @@
 """groundlens MCP Server — hallucination detection for Claude Desktop, Cursor, and any MCP client."""
 
-__version__ = "2026.7.5"
+__version__ = "2026.7.6"

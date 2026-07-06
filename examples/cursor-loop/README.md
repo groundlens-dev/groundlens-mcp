@@ -53,7 +53,7 @@ pip install uv
 - A **grounded** answer ends with something like `Grounding: GROUNDED (SGI = 0.97)`.
 - An answer **not supported by the source** gets flagged `HALLUCINATION RISK`, and the agent tells you so instead of inventing facts.
 
-That last line — the verdict + score — is the whole point. The model stops being its own judge.
+That last line — the check + score — is the whole point. The model stops being its own judge.
 
 ---
 

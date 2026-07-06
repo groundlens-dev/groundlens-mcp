@@ -42,7 +42,7 @@ It indexes the PDF, answers the questions in `questions.txt`, prints them, and l
 
 ## Audit the grounding (the point)
 
-Follow **[`AUDIT_IN_CLAUDE_CODE.md`](AUDIT_IN_CLAUDE_CODE.md)**: add the Groundlens MCP to Claude Code once, then ask it to run `groundlens_sgi` over `outputs/runs.jsonl`. It returns a per-answer verdict + score and flags the ungrounded ones — pointing at the exact unsupported sentence.
+Follow **[`AUDIT_IN_CLAUDE_CODE.md`](AUDIT_IN_CLAUDE_CODE.md)**: add the Groundlens MCP to Claude Code once, then ask it to run `groundlens_sgi` over `outputs/runs.jsonl`. It returns a per-answer check + score and flags the ungrounded ones — pointing at the exact unsupported sentence.
 
 You audited the whole pipeline's grounding from your editor. No wrapper, no second model, no new infra.
 

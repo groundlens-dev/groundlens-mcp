@@ -1,6 +1,6 @@
 # Try these in Cursor chat
 
-Open the Cursor chat (Cmd + L / Ctrl + L) and paste one prompt at a time. Watch the agent draft an answer, call a Groundlens tool, and show the verdict + score. The `grounding-loop` rule makes this happen automatically.
+Open the Cursor chat (Cmd + L / Ctrl + L) and paste one prompt at a time. Watch the agent draft an answer, call a Groundlens tool, and show the check + score. The `grounding-loop` rule makes this happen automatically.
 
 ## 1. Grounded question (should pass → GROUNDED)
 

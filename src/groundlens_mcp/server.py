@@ -181,21 +181,21 @@ def _ensure_loaded() -> None:
 
 
 def _format_result(result) -> str:
-    """Render a groundlens SGI/DGI result as the canonical VERIFICATION verdict.
+    """Render a groundlens SGI/DGI result as the canonical CHECK.
 
-    All wording comes from ``groundlens.verdict`` — the single source of truth
+    All wording comes from ``groundlens.check`` — the single source of truth
     shared with the library, the docs, and the remote MCP — so the phrasing is
-    identical everywhere. The plain ``verification`` label and ``message`` are
+    identical everywhere. The plain ``check`` label and ``message`` are
     what a person reads; ``score``, ``level``, ``flagged`` and ``detail`` are for
     programmatic use.
     """
-    from groundlens import verdict as _verdict
+    from groundlens import check as _check
 
-    v = _verdict(result)
+    v = _check(result)
     payload = {
-        "verification": v.label,  # e.g. "Supported by the document"
+        "check": v.label,  # e.g. "Supported by the document"
         "message": v.message,  # plain, jargon-free explanation
-        "headline": v.line(),  # "VERIFICATION: <label> (<name> - <ABBR>=x.xx)"
+        "headline": v.line(),  # "CHECK: <label> (<name> - <ABBR>=x.xx)"
         "level": v.level,  # "ok" | "review" | "risk"
         "method": v.metric_name,  # "Semantic Grounding Index" / "Directional Grounding Index"
         "score": round(v.score, 2),
@@ -213,7 +213,7 @@ def _error_response(message: str) -> str:
     """Return a structured JSON error that the LLM can interpret."""
     return json.dumps(
         {
-            "verdict": "ERROR",
+            "check": "ERROR",
             "explanation": message,
             "flagged": None,
             "score": None,
@@ -253,8 +253,9 @@ async def groundlens_check(params: CheckInput) -> str:
         params (CheckInput): The question, response, and optional context.
 
     Returns:
-        str: JSON with verdict (GROUNDED or HALLUCINATION RISK), score,
-             method used, explanation, and interpretation guidance.
+        str: JSON with a plain-language CHECK (Supported / Not supported by the
+             document, or Looks grounded / Not grounded), score, level, method,
+             message, and the raw components.
 
     Examples:
         - "Check if this ChatGPT answer about our policy is accurate"
@@ -340,7 +341,7 @@ async def groundlens_sgi(params: SGIInput) -> str:
         params (SGIInput): The question, source context, and LLM response.
 
     Returns:
-        str: JSON with verdict, SGI score, distances, and interpretation.
+        str: JSON with a plain-language CHECK, the SGI score, and the two distances.
 
     Examples:
         - Verifying a RAG chatbot used the retrieved documents
@@ -413,7 +414,7 @@ async def groundlens_dgi(params: DGIInput) -> str:
         params (DGIInput): The question and LLM response.
 
     Returns:
-        str: JSON with verdict, DGI score, and interpretation.
+        str: JSON with a plain-language CHECK, the DGI score, and the magnitude.
 
     Examples:
         - Checking a chatbot's answer to a factual question

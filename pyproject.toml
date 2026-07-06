@@ -33,7 +33,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "groundlens>=2026.7.5",
+    "groundlens>=2026.7.6",
     "mcp>=1.0.0",
     "pydantic>=2.0.0",
 ]

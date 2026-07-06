@@ -20,7 +20,7 @@ claude mcp add groundlens -- uvx groundlens-mcp
 
 2. **Open this folder in Claude Code** and paste this:
 
-   > Read `outputs/runs.jsonl`. For each entry, call the `groundlens_sgi` tool with `question` = the question, `response` = the answer, and `context` = the retrieved_context. Build a table with columns: question, verdict, score. Flag every entry below the grounded threshold, and for each flagged one quote the exact sentence in the answer that the context does not support.
+   > Read `outputs/runs.jsonl`. For each entry, call the `groundlens_sgi` tool with `question` = the question, `response` = the answer, and `context` = the retrieved_context. Build a table with columns: question, check, score. Flag every entry below the grounded threshold, and for each flagged one quote the exact sentence in the answer that the context does not support.
 
 3. **Watch what happens.** Claude Code calls the Groundlens MCP once per row — deterministically, no second LLM grading the output — and hands you a grounding report:
    - The **grounded** questions (revenue, net income, EPS, cash) pass with high SGI.

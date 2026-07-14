@@ -38,13 +38,13 @@ It indexes the PDF, answers the questions in `questions.txt`, prints them, and l
 
 `questions.txt` deliberately mixes two kinds:
 - **Grounded** questions (revenue, net income, EPS, cash) — answerable straight from the 10-Q.
-- **Bait** questions (market cap, Rule of 40, ShipOS) — *not* in a 10-Q. A weak RAG invents a number here; that's the hallucination you want to catch.
+- **Bait** questions (market cap, Rule of 40, ShipOS) — *not* in a 10-Q. A weak RAG answers them anyway, pulling from somewhere other than the filing. That is the disengagement you want to catch.
 
 ## Audit the grounding (the point)
 
-Follow **[`AUDIT_IN_CLAUDE_CODE.md`](AUDIT_IN_CLAUDE_CODE.md)**: add the Groundlens MCP to Claude Code once, then ask it to run `groundlens_sgi` over `outputs/runs.jsonl`. It returns a per-answer check + score and flags the ungrounded ones — pointing at the exact unsupported sentence.
+Follow **[`AUDIT_IN_CLAUDE_CODE.md`](AUDIT_IN_CLAUDE_CODE.md)**: add the Groundlens MCP to Claude Code once, then ask it to run `groundlens_sgi` over `outputs/runs.jsonl`. It returns a per-answer check and score, and flags the answers that did not engage the filing.
 
-You audited the whole pipeline's grounding from your editor. No wrapper, no second model, no new infra.
+One score per answer, not per sentence, and it checks provenance rather than truth: an answer that borrows the filing's frame and changes one figure will pass. Those cases carry `escalate: true` and a handoff line telling you what to do with them. Everything else, the volume, you cleared from your editor with no wrapper, no second model and no new infra.
 
 ## Why the MCP, and why deterministic
 

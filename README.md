@@ -12,8 +12,10 @@
 
 </div>
 
-MCP server for [groundlens](https://groundlens.dev) — LLM hallucination detection for Claude Desktop, Cursor, Windsurf, and any MCP-compatible client.
-No second LLM. Deterministic. Same inputs → same scores, every time.
+MCP server for [groundlens](https://groundlens.dev) — a deterministic **first-stage grounding check** for Claude Desktop, Cursor, Windsurf, and any MCP-compatible client.
+It checks whether an answer was drawn from its source, in milliseconds, with no model in the scoring path. Same inputs → same scores, every time.
+
+It is a filter, not a judge. It has a characterized blind spot, and every check says so.
 
 ## One-click install
 
@@ -38,9 +40,9 @@ Adds three tools to your AI assistant:
 | `groundlens_sgi` | Response vs. source document (SGI) | RAG pipelines, document Q&A |
 | `groundlens_dgi` | Response patterns without context (DGI) | Chat, general Q&A |
 
-**SGI** (Semantic Grounding Index) measures whether the response actually used the source material or just rephrased the question. Score > 0.95 = grounded.
+**SGI** (Semantic Grounding Index) measures whether the response engaged the source material or just rephrased the question. The default triage threshold is 0.95, and it is a starting point, not a verdict: calibrate it on your own grounded distribution. SGI sorts, it does not decide.
 
-**DGI** (Directional Grounding Index) measures whether the response follows geometric patterns typical of grounded answers. Score > 0.30 = grounded.
+**DGI** (Directional Grounding Index) is the context-free fallback. It is the weakest signal here and it has a measured ceiling (see below). Prefer SGI whenever you have the source.
 
 ## Install
 
@@ -143,7 +145,7 @@ Once configured, ask your ai assistant:
 
 > "Is this answer grounded in the document I provided?"
 
-> "Run a hallucination check on this ChatGPT output"
+> "Did this ChatGPT answer actually come from the document I gave it?"
 
 The tools return JSON with a plain-language **CHECK** check, a numeric score, and the raw components. The wording comes from `groundlens.check` — the same source of truth used by the library and docs, so it reads identically everywhere.
 
@@ -164,14 +166,35 @@ The tools return JSON with a plain-language **CHECK** check, a numeric score, an
 
 The check `level` is `ok` / `review` / `risk` (from the calibrated thresholds). For context-free DGI checks the check reads `Looks grounded` / `Partly grounded` / `Not grounded`, plus a `note` that no source was provided.
 
+Every response also carries `escalate` and `handoff`. **Do not drop them.** A passing check means the answer came from the source. It does not mean the facts are right, and `handoff` says so in plain language:
+
+```json
+{
+  "check": "Supported by the document",
+  "level": "ok",
+  "escalate": false,
+  "handoff": "Grounding, not facts: a plausible wrong fact in the right frame would pass this check. Verify facts in a second stage."
+}
+```
+
+A client that renders the check without the handoff silently green-lights the one class of error this method provably cannot see.
+
 ## How it works
 
-groundlens uses embedding geometry — not a second LLM — to detect hallucinations:
+groundlens uses embedding geometry, with no model in the scoring path, to check **provenance**: did this answer come from its source?
 
-- **SGI** computes `dist(response, question) / dist(response, context)`. If the response moved toward the context, it's grounded. If it stayed near the question, the context was likely ignored.
-- **DGI** projects the question→response displacement onto the mean direction of verified grounded pairs. Positive alignment = grounded pattern.
+- **SGI** computes `dist(response, question) / dist(response, context)`. If the response moved toward the context, it engaged the source. If it stayed near the question, the context was likely ignored.
+- **DGI** projects the question→response displacement onto the mean direction of answers written from a source. Context-free, and coarse.
 
-Both methods run a single embedding call. No model inference for evaluation. Deterministic.
+Both run a single embedding call. No inference. Deterministic.
+
+## The wall, and why there is a second stage
+
+Bin confabulations by how far they sit from the register of a correct answer, and every embedding-similarity method, this one included, declines toward chance as the answer moves *into* register: same vocabulary, same phrasing, one wrong number. At the in-register end classic encoders reach AUROC 0.62 to 0.68 and raw cosine 0.595. With authorship held constant the directional score reaches 0.606, and the ceiling of the whole class is about 0.68.
+
+Entailment does not decline. Across the same bins an NLI cross-encoder holds 0.836, 0.786, 0.837, 0.719, 0.887, and it is strongest exactly where geometry is weakest. **Entailment is the recommended second stage.** This server runs first, on everything, for free, and hands over what it cannot settle.
+
+Full write-up: *The Register Wall: What Similarity-Based Hallucination Detectors Actually Measure* (under review). Read it before relying on any similarity-based detector, including this one.
 
 ## First-call latency
 

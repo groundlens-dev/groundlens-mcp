@@ -44,25 +44,28 @@ pip install uv
 
 **4. The rule is already active.** `.cursor/rules/grounding-loop.mdc` is set to *always apply*, so the agent will verify factual answers on its own — you don't have to ask.
 
-**5. Try it.** Open the chat (**Cmd + L** on macOS / **Ctrl + L**), make sure you're in **Agent** mode, and paste the prompts from [`demo/try-these.md`](demo/try-these.md), one at a time. Watch the agent: draft → call a Groundlens tool → show `GROUNDED` or `HALLUCINATION RISK` + a score.
+**5. Try it.** Open the chat (**Cmd + L** on macOS / **Ctrl + L**), make sure you're in **Agent** mode, and paste the prompts from [`demo/try-these.md`](demo/try-these.md), one at a time. Watch the agent: draft → call a Groundlens tool → show the CHECK, the score, and the handoff line.
 
 ---
 
 ## What you should see
 
-- A **grounded** answer ends with something like `Grounding: GROUNDED (SGI = 0.97)`.
-- An answer **not supported by the source** gets flagged `HALLUCINATION RISK`, and the agent tells you so instead of inventing facts.
+- An answer drawn from the source ends with something like `Grounding: Supported by the document (SGI = 4.64)`, followed by the handoff line: *grounding, not facts. A plausible wrong fact in the right frame would pass this check.*
+- An answer **not supported by the source** comes back `Not supported by the document`, with `escalate: true`, and the agent tells you so instead of inventing facts.
 
-That last line — the check + score — is the whole point. The model stops being its own judge.
+Both halves are the point. The model stops being its own judge of provenance, and the check stops pretending to be a judge of truth.
 
 ---
 
 ## Why this matters (the research behind it)
 
-In a controlled loop experiment, letting the model **check its own** output barely helped (≈43% error, vs ≈40% with no check). Only an **external, source-anchored** check moved the needle (≈19% error). This demo is that finding made tangible: the check lives *outside* the model.
+A model asked to check its own output is grading its own homework with the same pen. The anchor has to come from outside, and it has to be cheap enough to run on everything. That is what this loop is.
+
+It is also bounded, and the boundary is published. Groundlens checks whether an answer came from its source. On a wrong fact stated in the right frame it declines toward chance, like every embedding-similarity method. Entailment models do not, and that is the second stage the handoff points you to.
 
 - Groundlens: https://groundlens.dev · MCP server: https://github.com/groundlens-dev/groundlens-mcp
-- Paper (the geometry behind SGI/DGI): *How Transformers Reject Wrong Answers*, arXiv:2603.13259
+- The geometry behind SGI/DGI: arXiv:2512.13771 · the model dynamics: *Rotational Dynamics of Factual Constraint Processing*, arXiv:2603.13259
+- What this method cannot do, and why: *The Register Wall: What Similarity-Based Hallucination Detectors Actually Measure* (under review)
 
 ---
 

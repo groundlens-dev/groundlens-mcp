@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "groundlens-mcp"
 dynamic = ["version"]
-description = "MCP server for groundlens — LLM hallucination detection for Claude Desktop, Cursor, Windsurf, and any MCP client"
+description = "MCP server for groundlens — deterministic first-stage grounding checks for Claude Desktop, Cursor, Windsurf, and any MCP-compatible client"
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
@@ -33,7 +33,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "groundlens>=2026.7.6",
+    "groundlens>=2026.7.13",
     "mcp>=1.0.0",
     "pydantic>=2.0.0",
 ]

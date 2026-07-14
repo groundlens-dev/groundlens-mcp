@@ -51,6 +51,8 @@ class FakeCheck:
     score: float
     detail: str
     note: str = ""
+    escalate: bool = False
+    handoff: str = ""
 
     def line(self) -> str:
         abbr = "SGI" if "Semantic" in self.metric_name else "DGI"
@@ -469,3 +471,38 @@ class TestScoringFailure:
             output = json.loads(_run(groundlens_dgi(params)))
             assert output["check"] == "ERROR"
             assert "generic failure" in output["explanation"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# The handoff must always ride along. A client that renders a passing check
+# without it silently green-lights an in-register factual substitution, which is
+# the one class this method provably cannot see.
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+class TestHandoffAlwaysPresent:
+    """``escalate`` and ``handoff`` are part of the contract, on pass and on fail."""
+
+    def test_passing_check_carries_the_handoff(self) -> None:
+        v = _sgi_check(label="Supported by the document", level="ok", score=4.64)
+        v.escalate = False
+        v.handoff = (
+            "Grounding, not facts: a plausible wrong fact in the right frame would "
+            "pass this check. Verify facts in a second stage."
+        )
+        with patch.dict("sys.modules", {"groundlens": _gl_module(check_obj=v)}):
+            out = json.loads(_format_result(FakeResult(flagged=False, value=4.64)))
+        assert out["escalate"] is False
+        assert "second stage" in out["handoff"]
+
+    def test_failing_check_escalates(self) -> None:
+        v = _sgi_check(label="Not supported by the document", level="risk", score=0.83)
+        v.escalate = True
+        v.handoff = (
+            "Escalate to your second stage, an LLM judge or a human. "
+            "Geometry cannot settle this one."
+        )
+        with patch.dict("sys.modules", {"groundlens": _gl_module(check_obj=v)}):
+            out = json.loads(_format_result(FakeResult(flagged=True, value=0.83)))
+        assert out["escalate"] is True
+        assert "Escalate" in out["handoff"]

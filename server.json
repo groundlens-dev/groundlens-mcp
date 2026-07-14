@@ -1,8 +1,8 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
   "name": "io.github.groundlens-dev/groundlens-mcp",
-  "description": "Deterministic LLM hallucination detection via embedding geometry (SGI/DGI). No second LLM.",
-  "version": "2026.7.4",
+  "description": "Deterministic first-pass grounding triage via embedding geometry (SGI/DGI). Checks whether a response engaged its source; escalates what it cannot settle.",
+  "version": "2026.7.13",
   "repository": {
     "url": "https://github.com/groundlens-dev/groundlens-mcp",
     "source": "github"
@@ -12,7 +12,7 @@
       "registry_type": "pypi",
       "registry_base_url": "https://pypi.org",
       "identifier": "groundlens-mcp",
-      "version": "2026.7.4",
+      "version": "2026.7.13",
       "transport": { "type": "stdio" }
     }
   ]

@@ -1,13 +1,22 @@
 """
 groundlens MCP Server
 
-Exposes LLM hallucination detection as MCP tools for Claude Desktop,
-Cursor, Windsurf, and any MCP-compatible client.
+Exposes a deterministic first-stage grounding check as MCP tools for Claude
+Desktop, Cursor, Windsurf, and any MCP-compatible client.
+
+Scope, and it decides how the result must be used: this checks whether a
+response was DRAWN FROM ITS SOURCE. It does not check whether the response is
+TRUE. A plausible wrong fact stated in the right frame (right topic, right
+terminology, one wrong number) passes this check by design. That is a measured
+blind spot, not a bug: every embedding-similarity method, this one included,
+declines toward chance as a false answer adopts the register of a true one.
+Entailment models do not. Every check therefore carries an ``escalate`` flag and
+a ``handoff`` line naming what it cannot settle.
 
 Three tools:
   - groundlens_check: auto-selects SGI or DGI based on whether context is provided
-  - groundlens_sgi: explicit context-based grounding verification (RAG)
-  - groundlens_dgi: explicit context-free grounding verification (chat)
+  - groundlens_sgi: context-based grounding check (RAG)
+  - groundlens_dgi: context-free grounding signal (chat), coarse, with a known ceiling
 
 Uses the groundlens library (same code as `pip install groundlens`).
 All scoring is deterministic — same inputs, same scores, every time.
@@ -52,7 +61,7 @@ mcp = FastMCP("groundlens_mcp")
 
 
 class CheckInput(BaseModel):
-    """Input for the main hallucination check tool."""
+    """Input for the main grounding check tool."""
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
@@ -64,7 +73,7 @@ class CheckInput(BaseModel):
     )
     response: str = Field(
         ...,
-        description="The LLM's response to evaluate for hallucination",
+        description="The LLM's response to check for grounding (was it drawn from the source?)",
         min_length=1,
         max_length=50000,
     )
@@ -188,6 +197,12 @@ def _format_result(result) -> str:
     identical everywhere. The plain ``check`` label and ``message`` are
     what a person reads; ``score``, ``level``, ``flagged`` and ``detail`` are for
     programmatic use.
+
+    ``escalate`` and ``handoff`` are the important pair. A passing check means the
+    response engaged its source, not that its facts are right, and ``handoff``
+    says so in plain language. A client that renders the check without the handoff
+    will silently green-light the one class of error this method provably cannot
+    see. Requires groundlens >= 2026.7.13.
     """
     from groundlens import check as _check
 
@@ -200,6 +215,8 @@ def _format_result(result) -> str:
         "method": v.metric_name,  # "Semantic Grounding Index" / "Directional Grounding Index"
         "score": round(v.score, 2),
         "flagged": result.flagged,
+        "escalate": v.escalate,  # True when geometry cannot settle this case
+        "handoff": v.handoff,  # what the second stage has to do. Never omit it.
         "detail": v.detail,  # raw components (q_dist/ctx_dist or magnitude)
     }
     if v.note:
@@ -230,7 +247,7 @@ def _error_response(message: str) -> str:
 @mcp.tool(
     name="groundlens_check",
     annotations={
-        "title": "Check for LLM Hallucination",
+        "title": "Check grounding against a source",
         "readOnlyHint": True,
         "destructiveHint": False,
         "idempotentHint": True,
@@ -238,29 +255,38 @@ def _error_response(message: str) -> str:
     },
 )
 async def groundlens_check(params: CheckInput) -> str:
-    """Check whether an LLM response is hallucinated or grounded.
+    """Check whether an LLM response was drawn from its source. Grounding, not truth.
 
     This is the main tool. It automatically selects the right method:
     - If context is provided: uses SGI (Semantic Grounding Index) to check
-      whether the response actually used the source material.
-    - If no context: uses DGI (Directional Grounding Index) to check whether
-      the response follows patterns typical of grounded answers.
+      whether the response actually engaged the source material.
+    - If no context: uses DGI (Directional Grounding Index), a coarse signal
+      with a known ceiling.
 
-    Both methods are deterministic — same inputs always produce the same score.
-    No second LLM is used. Scoring is based on embedding geometry.
+    Both are deterministic — same inputs always produce the same score. No model
+    in the scoring path. Scoring is embedding geometry.
+
+    IMPORTANT — how to report the result. A passing check means the response
+    ENGAGED ITS SOURCE. It does NOT mean the facts are correct. A plausible wrong
+    fact stated in the right frame (right topic, right terminology, one wrong
+    number or date) will pass. Do not tell the user a passing check means the
+    answer is "verified", "accurate" or "not hallucinated". Always surface the
+    ``handoff`` field, and when ``escalate`` is true, say so: the case needs a
+    second stage (an entailment check, a lookup against the source, or a judge).
 
     Args:
         params (CheckInput): The question, response, and optional context.
 
     Returns:
-        str: JSON with a plain-language CHECK (Supported / Not supported by the
-             document, or Looks grounded / Not grounded), score, level, method,
-             message, and the raw components.
+        str: JSON with a plain-language CHECK (Supported / Partly supported / Not
+             supported by the document, or Looks grounded / Partly grounded / Not
+             grounded), score, level, method, message, ``escalate``, ``handoff``,
+             and the raw components.
 
     Examples:
-        - "Check if this ChatGPT answer about our policy is accurate"
+        - "Did this ChatGPT answer actually come from our policy document?"
           → provide question + response + the policy document as context
-        - "Is this response hallucinated?"
+        - "Did this answer engage its source at all?"
           → provide question + response (no context needed)
     """
     try:
@@ -326,7 +352,7 @@ async def groundlens_check(params: CheckInput) -> str:
     },
 )
 async def groundlens_sgi(params: SGIInput) -> str:
-    """Check whether an LLM response is grounded in a source document (SGI).
+    """Check whether an LLM response engaged a source document (SGI). Provenance, not truth.
 
     SGI (Semantic Grounding Index) measures whether the response engaged with
     the provided context or stayed anchored to the question. This is the method
@@ -334,8 +360,12 @@ async def groundlens_sgi(params: SGIInput) -> str:
     retrieved documents?
 
     The score is a ratio: dist(response, question) / dist(response, context).
-    A high ratio means the response moved toward the context (grounded).
+    A high ratio means the response moved toward the context.
     A low ratio means it stayed near the question (possibly ignored the context).
+
+    IMPORTANT: this measures PROVENANCE. An answer that borrows the source's
+    vocabulary and structure but changes one figure will pass. Surface the
+    ``handoff`` field and escalate fact-level verification to a second stage.
 
     Args:
         params (SGIInput): The question, source context, and LLM response.
@@ -391,7 +421,7 @@ async def groundlens_sgi(params: SGIInput) -> str:
 @mcp.tool(
     name="groundlens_dgi",
     annotations={
-        "title": "DGI — Directional Grounding Check",
+        "title": "DGI — coarse grounding signal, no source",
         "readOnlyHint": True,
         "destructiveHint": False,
         "idempotentHint": True,
@@ -399,27 +429,29 @@ async def groundlens_sgi(params: SGIInput) -> str:
     },
 )
 async def groundlens_dgi(params: DGIInput) -> str:
-    """Check whether an LLM response shows hallucination patterns (DGI).
+    """Coarse context-free grounding signal, for when no source is available (DGI).
 
-    DGI (Directional Grounding Index) measures whether the question-to-response
-    displacement aligns with the direction characteristic of verified grounded
-    responses. No source context is needed — this works for open-ended chat,
-    general Q&A, or any situation where you just have a question and answer.
+    DGI (Directional Grounding Index) compares the question-to-response
+    displacement against the direction typical of answers written from a source.
+    No context is needed, so it works for open-ended chat and general Q&A.
 
-    A positive score means the displacement aligns with grounded patterns.
-    A score below 0.30 means the response is geometrically anomalous.
-    A negative score means high hallucination risk.
+    IMPORTANT: this is the weakest signal here and it has a measured ceiling. With
+    authorship held constant it reaches AUROC 0.606, and the ceiling of the entire
+    embedding-similarity class is about 0.68. It is a ranking signal for triage,
+    not a detector, and it is not a risk verdict. Prefer ``groundlens_sgi``
+    whenever a source is available. Never report a DGI score as evidence that an
+    answer is true or false.
 
     Args:
         params (DGIInput): The question and LLM response.
 
     Returns:
-        str: JSON with a plain-language CHECK, the DGI score, and the magnitude.
+        str: JSON with a plain-language CHECK, the DGI score, the magnitude,
+             ``escalate`` and ``handoff``.
 
     Examples:
-        - Checking a chatbot's answer to a factual question
-        - Screening LLM outputs before showing them to users
-        - Batch-evaluating model responses for quality
+        - Ranking a batch of chat answers so a reviewer starts with the worst
+        - Screening outputs when no source document exists
     """
     try:
         _ensure_loaded()

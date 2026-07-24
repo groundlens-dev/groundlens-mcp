@@ -9,6 +9,7 @@
   [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=flat-square)](LICENSE)
   [![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/groundlens-dev/groundlens-mcp?style=flat-square&label=OpenSSF%20Scorecard)](https://scorecard.dev/viewer/?uri=github.com/groundlens-dev/groundlens-mcp)
   [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13396/badge)](https://www.bestpractices.dev/projects/13396)
+  [![groundlens-mcp MCP server](https://glama.ai/mcp/servers/groundlens-dev/groundlens-mcp/badges/score.svg)](https://glama.ai/mcp/servers/groundlens-dev/groundlens-mcp)
 
 </div>
 

@@ -180,6 +180,26 @@ Every response also carries `escalate` and `handoff`. **Do not drop them.** A pa
 
 A client that renders the check without the handoff silently green-lights the one class of error this method provably cannot see.
 
+## What this does not do
+
+This is a **grounding** check, not a fact check. Three specific things it cannot see:
+
+- **Type III — a factual error inside the right frame.** A wrong answer that keeps
+  the vocabulary, structure and register of the correct one (right topic, right
+  terminology, one wrong number or date) lands inside the plausibility region of
+  the correct answer in embedding space, and is geometrically indistinguishable
+  from it. This server will pass it. That is the whole reason the `escalate` and
+  `handoff` fields exist — a passing check means the answer engaged its source, it
+  does not mean the answer is right.
+- **Anything a single frozen sentence embedding cannot express.** The bound behind
+  the ceiling below applies to detectors that are functions of one frozen sentence
+  embedding. It says nothing about detectors that read activations, log-probs,
+  multiple samples, or retrieval — and it does not license the claim that those
+  cannot do better.
+- **Truth, of any kind.** Never render a passing check as "verified", "accurate"
+  or "not hallucinated". Send what this cannot settle to a second stage: an
+  entailment check, a lookup against the source, or a judge.
+
 ## How it works
 
 groundlens uses embedding geometry, with no model in the scoring path, to check **provenance**: did this answer come from its source?
@@ -189,17 +209,57 @@ groundlens uses embedding geometry, with no model in the scoring path, to check 
 
 Both run a single embedding call. No inference. Deterministic.
 
-## The wall, and why there is a second stage
+## The register wall, and why there is a second stage
 
-Bin confabulations by how far they sit from the register of a correct answer, and every embedding-similarity method, this one included, declines toward chance as the answer moves *into* register: same vocabulary, same phrasing, one wrong number. At the in-register end classic encoders reach AUROC 0.62 to 0.68 and raw cosine 0.595. With authorship held constant the directional score reaches 0.606, and the ceiling of the whole class is about 0.68.
+Bin confabulations by how far they sit from the register of a correct answer, and
+a detector that is a function of a single frozen sentence embedding — this one
+included — declines toward chance as the answer moves *into* register: same
+vocabulary, same phrasing, one wrong number. At the in-register end classic
+encoders reach AUROC 0.62 to 0.68 and raw cosine 0.595. On the
+authorship-matched split the directional score (DGI) reaches 0.606, a logistic
+probe 0.660 and an MLP probe 0.675.
+
+Three scope conditions, because the result is narrower than it is usually quoted:
+
+- **The ~0.68 ceiling is measured for DGI and for logistic/MLP probes over those
+  embeddings.** It is *not* a demonstrated ceiling for every embedding-similarity
+  method. Stronger classifiers (random forest, XGBoost) retain residual signal up
+  to 0.88 at high register alignment.
+- **Register sufficiency is an assumption, not a theorem**, and it is only
+  partially true: residual surface features retain a Spearman correlation of up
+  to 0.37 after register alignment is controlled for.
+- **The formal bound covers only detectors that are functions of a single frozen
+  sentence embedding.** It says nothing about detectors that read activations,
+  log-probs, multiple samples, or retrieval.
+
+SGI and DGI are also not interchangeable: SGI uses a source document, DGI is
+reference-free, and the authorship control was run on DGI and on probes over
+embeddings, not on SGI. Never quote a number for one as if it were the other.
 
 Entailment does not decline. Across the same bins an NLI cross-encoder holds 0.836, 0.786, 0.837, 0.719, 0.887, and it is strongest exactly where geometry is weakest. **Entailment is the recommended second stage.** This server runs first, on everything, for free, and hands over what it cannot settle.
 
-Full write-up: *The Register Wall: What Similarity-Based Hallucination Detectors Actually Measure* (under review). Read it before relying on any similarity-based detector, including this one.
+Full write-up: *The Outer Geometry of Truth: Register Alignment and the Limits of
+Embedding-Based Hallucination Detection* — this is the paper everything else
+refers to as "the register wall". Read it before relying on any similarity-based
+detector, including this one.
+
+**Paper status.** arXiv preprints. Each has been through peer review at COLM,
+NeurIPS or ACL, three reviewers per paper, and each current version was revised
+to address every point raised. None is accepted at a venue yet. *The Outer
+Geometry of Truth* is newer than the others and has not been through that cycle.
 
 ## First-call latency
 
-The first tool call downloads and loads the sentence-transformer model (~100MB). Subsequent calls are fast. The model is loaded lazily so your MCP client doesn't slow down on startup.
+The first tool call downloads and loads the default encoder,
+`sentence-transformers/sentence-t5-large` (335M parameters, 768 dims, **~670 MB**
+of weights). On a normal connection that download takes a minute or two; it is
+cached afterwards and subsequent calls are fast. The model is loaded lazily so
+your MCP client doesn't slow down on startup.
+
+To trade accuracy for size, pass a smaller encoder to the groundlens library
+(`all-MiniLM-L6-v2` is 22M parameters, ~90 MB) — but the bundled SGI thresholds
+and the certified DGI reference direction were calibrated on sentence-t5-large,
+so any other encoder needs its own calibration before its flags mean anything.
 
 ## Running from source
 

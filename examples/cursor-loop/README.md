@@ -36,7 +36,7 @@ pip install uv
 
 *Prefer plain pip?* Then run `pip install groundlens-mcp` and edit `.cursor/mcp.json` to use `"command": "groundlens-mcp"` with `"args": []`.
 
-> First run downloads a ~100 MB embedding model, so the first check takes a few seconds. After that it's fast.
+> First run downloads the default encoder, `sentence-transformers/sentence-t5-large` (~670 MB), so the first check takes a minute or two on a normal connection. It is cached afterwards and later checks are fast.
 
 **2. Open this folder in Cursor.** `File → Open Folder…` → pick `groundlens-loop-demo`.
 
@@ -61,16 +61,17 @@ Both halves are the point. The model stops being its own judge of provenance, an
 
 A model asked to check its own output is grading its own homework with the same pen. The anchor has to come from outside, and it has to be cheap enough to run on everything. That is what this loop is.
 
-It is also bounded, and the boundary is published. Groundlens checks whether an answer came from its source. On a wrong fact stated in the right frame it declines toward chance, like every embedding-similarity method. Entailment models do not, and that is the second stage the handoff points you to.
+It is also bounded, and the boundary is published. Groundlens checks whether an answer came from its source. On a wrong fact stated in the right frame it declines toward chance, like any detector that is a function of a single frozen sentence embedding. That is the second stage the handoff points you to. The measured ceiling (~0.68) is for the directional score and for logistic/MLP probes over those embeddings, not for every embedding-similarity method: stronger classifiers retain residual signal up to 0.88 at high register alignment.
 
 - Groundlens: https://groundlens.dev · MCP server: https://github.com/groundlens-dev/groundlens-mcp
 - The geometry behind SGI/DGI: arXiv:2512.13771 · the model dynamics: *Rotational Dynamics of Factual Constraint Processing*, arXiv:2603.13259
-- What this method cannot do, and why: *The Register Wall: What Similarity-Based Hallucination Detectors Actually Measure* (under review)
+- What this method cannot do, and why: *The Outer Geometry of Truth: Register Alignment and the Limits of Embedding-Based Hallucination Detection* — the paper usually referred to as "the register wall"
+- Paper status: arXiv preprints. Each has been through peer review at COLM, NeurIPS or ACL, three reviewers per paper, and each current version was revised to address every point raised. None is accepted at a venue yet. *The Outer Geometry of Truth* is newer than the others and has not been through that cycle.
 
 ---
 
 ## Troubleshooting
 
 - **groundlens not listed under MCP:** restart Cursor; confirm `uv`/`uvx` (or `groundlens-mcp`) is on your PATH by running `uvx groundlens-mcp --help` in a terminal.
-- **First answer is slow:** that's the one-time model download (~100 MB). Later calls are fast.
+- **First answer is slow:** that's the one-time download of `sentence-transformers/sentence-t5-large` (~670 MB). Later calls are fast.
 - **Agent answers without checking:** make sure you're in **Agent** mode (not plain chat), and that the `groundlens` MCP toggle is green.

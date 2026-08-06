@@ -8,8 +8,9 @@ Scope, and it decides how the result must be used: this checks whether a
 response was DRAWN FROM ITS SOURCE. It does not check whether the response is
 TRUE. A plausible wrong fact stated in the right frame (right topic, right
 terminology, one wrong number) passes this check by design. That is a measured
-blind spot, not a bug: every embedding-similarity method, this one included,
-declines toward chance as a false answer adopts the register of a true one.
+blind spot, not a bug: a detector that is a function of a single frozen sentence
+embedding, this one included, declines toward chance as a false answer adopts the
+register of a true one.
 Entailment models do not. Every check therefore carries an ``escalate`` flag and
 a ``handoff`` line naming what it cannot settle.
 
@@ -135,8 +136,9 @@ class DGIInput(BaseModel):
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Lazy model loading — import groundlens only when first tool is called.
-# This avoids loading the sentence-transformer model (~100MB) at server
-# startup, which matters for MCP clients that enumerate tools on connect.
+# This avoids loading the sentence-transformer encoder at server startup
+# (the default is sentence-transformers/sentence-t5-large, ~670 MB), which
+# matters for MCP clients that enumerate tools on connect.
 # ─────────────────────────────────────────────────────────────────────────────
 
 _loaded = False
@@ -154,7 +156,8 @@ def _ensure_loaded() -> None:
 
     logger.info(
         "Loading embedding model for the first time "
-        "(~100 MB download on first run, ~5 s on subsequent starts)..."
+        "(sentence-transformers/sentence-t5-large, ~670 MB download on first "
+        "run, ~5 s on subsequent starts)..."
     )
     load_start = time.perf_counter()
 
@@ -435,9 +438,13 @@ async def groundlens_dgi(params: DGIInput) -> str:
     displacement against the direction typical of answers written from a source.
     No context is needed, so it works for open-ended chat and general Q&A.
 
-    IMPORTANT: this is the weakest signal here and it has a measured ceiling. With
-    authorship held constant it reaches AUROC 0.606, and the ceiling of the entire
-    embedding-similarity class is about 0.68. It is a ranking signal for triage,
+    IMPORTANT: this is the weakest signal here and it has a measured ceiling. On
+    the authorship-matched split it reaches AUROC 0.606, against 0.660 for a
+    logistic probe and 0.675 for an MLP probe over the same embeddings. That
+    ~0.68 is the measured ceiling for DGI and for those probes; it is NOT a
+    demonstrated ceiling for every embedding-similarity method, and stronger
+    classifiers (random forest, XGBoost) retain residual signal up to 0.88 at
+    high register alignment. It is a ranking signal for triage,
     not a detector, and it is not a risk verdict. Prefer ``groundlens_sgi``
     whenever a source is available. Never report a DGI score as evidence that an
     answer is true or false.

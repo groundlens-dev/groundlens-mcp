@@ -1,284 +1,50 @@
-<!-- mcp-name: io.github.groundlens-dev/groundlens-mcp -->
 <div align="center">
-  
-# Groundlens MCP
-  
-  [![Python](https://img.shields.io/pypi/pyversions/groundlens-mcp?style=flat-square)](https://pypi.org/project/groundlens-mcp/)
-  [![CI](https://img.shields.io/github/actions/workflow/status/groundlens-dev/groundlens-mcp/ci.yml?branch=main&label=CI&style=flat-square)](https://github.com/groundlens-dev/groundlens-mcp/actions)
-  [![codecov](https://codecov.io/gh/groundlens-dev/groundlens-mcp/branch/main/graph/badge.svg)](https://codecov.io/gh/groundlens-dev/groundlens-mcp)
-  [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=flat-square)](LICENSE)
-  [![OpenSSF Scorecard](https://img.shields.io/ossf-scorecard/github.com/groundlens-dev/groundlens-mcp?style=flat-square&label=OpenSSF%20Scorecard)](https://scorecard.dev/viewer/?uri=github.com/groundlens-dev/groundlens-mcp)
-  [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13396/badge)](https://www.bestpractices.dev/projects/13396)
-  [![groundlens-mcp MCP server](https://glama.ai/mcp/servers/groundlens-dev/groundlens-mcp/badges/score.svg)](https://glama.ai/mcp/servers/groundlens-dev/groundlens-mcp)
+
+# groundlens-mcp
 
 </div>
 
-MCP server for [groundlens](https://groundlens.dev) — a deterministic **first-stage grounding check** for Claude Desktop, Cursor, Windsurf, and any MCP-compatible client.
-It checks whether an answer was drawn from its source, in milliseconds, with no model in the scoring path. Same inputs → same scores, every time.
-
-It is a filter, not a judge. It has a characterized blind spot, and every check says so.
-
-## One-click install
-
-<div align="center">
-  
-| Tool | Install|
-|------|---------------|
-| Cursor | [![Install in Cursor](https://img.shields.io/badge/Cursor-Add_MCP-000000?style=flat-square&logo=cursor&logoColor=white)](https://cursor.com/install-mcp?name=groundlens&config=eyJjb21tYW5kIjoidXZ4IiwiYXJncyI6WyJncm91bmRsZW5zLW1jcCJdfQ%3D%3D)|
-| VS Code | [![Install in VS Code](https://img.shields.io/badge/VS_Code-Add_MCP-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=groundlens&config=%7B%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22groundlens-mcp%22%5D%7D)|
-| VS Code Insiders |  [![Install in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Add_MCP-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=groundlens&config=%7B%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22groundlens-mcp%22%5D%7D&quality=insiders) |
-  
-</div>
-
-
-## What it does
-
-Adds three tools to your AI assistant:
-
-| Tool | What it checks | When to use it |
-|------|---------------|----------------|
-| `groundlens_check` | Auto-selects the right method | Default — just use this one |
-| `groundlens_sgi` | Response vs. source document (SGI) | RAG pipelines, document Q&A |
-| `groundlens_dgi` | Response patterns without context (DGI) | Chat, general Q&A |
-
-**SGI** (Semantic Grounding Index) measures whether the response engaged the source material or just rephrased the question. The default triage threshold is 0.95, and it is a starting point, not a verdict: calibrate it on your own grounded distribution. SGI sorts, it does not decide.
-
-**DGI** (Directional Grounding Index) is the context-free fallback. It is the weakest signal here and it has a measured ceiling (see below). Prefer SGI whenever you have the source.
-
-## Install
+**This repository is archived. The groundlens MCP connector now ships inside the
+library itself.**
 
 ```bash
-pip install groundlens-mcp
+pip install "groundlens[encoder,mcp]"
+python -m groundlens.mcp
 ```
 
-Or with [uv](https://docs.astral.sh/uv/):
-
-```bash
-uv pip install groundlens-mcp
-```
-
-### More clients
-
-**Claude Code** (CLI):
-
-```bash
-claude mcp add groundlens -- uvx groundlens-mcp
-```
-
-**Claude Desktop, Windsurf, Cline, or any MCP client** — add to its config:
-
-```json
-{ "mcpServers": { "groundlens": { "command": "uvx", "args": ["groundlens-mcp"] } } }
-```
-
-## Configure your client
-
-### Claude Desktop
-
-Add to your `claude_desktop_config.json`:
-
-- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-
-- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-
-- **Linux**: `~/.config/Claude/claude_desktop_config.json`
+Point your client at that command:
 
 ```json
 {
   "mcpServers": {
     "groundlens": {
-      "command": "groundlens-mcp"
+      "command": "python",
+      "args": ["-m", "groundlens.mcp"]
     }
   }
 }
 ```
 
-If you installed with `uv` and the command isn't on your PATH:
+## Why it moved
 
-```json
-{
-  "mcpServers": {
-    "groundlens": {
-      "command": "uv",
-      "args": ["run", "groundlens-mcp"]
-    }
-  }
-}
-```
+Keeping the connector in a second package meant keeping a second implementation
+of the same thing, and the two drifted. This repository was still serving three
+tools — `groundlens_check`, `groundlens_sgi`, `groundlens_dgi` — built on a
+metric the project has since withdrawn, and still answering with a verdict and a
+threshold that the measurements do not support.
 
-### Cursor
+groundlens 3.0.0 exposes one tool, `find_unsupported_words`. It returns the words
+your sources least support and the closest span it found for each one. It
+returns no verdict and carries no threshold. There is now exactly one
+implementation of that, and it lives beside the code it wraps.
 
-Add to `.cursor/mcp.json` in your project:
+## Where things are
 
-```json
-{
-  "mcpServers": {
-    "groundlens": {
-      "command": "groundlens-mcp"
-    }
-  }
-}
-```
+- [groundlens](https://github.com/groundlens-dev/groundlens) — the library
+- [groundlens.dev](https://groundlens.dev) — what it does and why
+- [PyPI](https://pypi.org/project/groundlens/) — `pip install groundlens`
 
-Example with Cursor:
+The `groundlens-mcp` package on PyPI is deprecated. Versions up to `2026.5.18`
+are yanked; `3.0.0` installs nothing and prints the migration message above.
 
-- [Cursor self-verification loop](examples/cursor-loop/) — drop-in `.cursor/` config + rule that makes Cursor verify every answer with Groundlens.
-
-### Windsurf
-
-Add to `~/.codeium/windsurf/mcp_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "groundlens": {
-      "command": "groundlens-mcp"
-    }
-  }
-}
-```
-
-## How to use
-
-Once configured, ask your ai assistant:
-
-> "Check if this response is hallucinated"
-
-> "Is this answer grounded in the document I provided?"
-
-> "Did this ChatGPT answer actually come from the document I gave it?"
-
-The tools return JSON with a plain-language **CHECK** check, a numeric score, and the raw components. The wording comes from `groundlens.check` — the same source of truth used by the library and docs, so it reads identically everywhere.
-
-### Example output
-
-```json
-{
-  "check": "Not supported by the document",
-  "message": "The answer stays closer to the question than to the source, so it may not come from the document. Check it before trusting it.",
-  "headline": "CHECK: Not supported by the document (Semantic Grounding Index - SGI=0.87)",
-  "level": "risk",
-  "method": "Semantic Grounding Index",
-  "score": 0.87,
-  "flagged": true,
-  "detail": "distance to source 0.49, distance to question 0.43"
-}
-```
-
-The check `level` is `ok` / `review` / `risk` (from the calibrated thresholds). For context-free DGI checks the check reads `Looks grounded` / `Partly grounded` / `Not grounded`, plus a `note` that no source was provided.
-
-Every response also carries `escalate` and `handoff`. **Do not drop them.** A passing check means the answer came from the source. It does not mean the facts are right, and `handoff` says so in plain language:
-
-```json
-{
-  "check": "Supported by the document",
-  "level": "ok",
-  "escalate": false,
-  "handoff": "Grounding, not facts: a plausible wrong fact in the right frame would pass this check. Verify facts in a second stage."
-}
-```
-
-A client that renders the check without the handoff silently green-lights the one class of error this method provably cannot see.
-
-## What this does not do
-
-This is a **grounding** check, not a fact check. Three specific things it cannot see:
-
-- **Type III — a factual error inside the right frame.** A wrong answer that keeps
-  the vocabulary, structure and register of the correct one (right topic, right
-  terminology, one wrong number or date) lands inside the plausibility region of
-  the correct answer in embedding space, and is geometrically indistinguishable
-  from it. This server will pass it. That is the whole reason the `escalate` and
-  `handoff` fields exist — a passing check means the answer engaged its source, it
-  does not mean the answer is right.
-- **Anything a single frozen sentence embedding cannot express.** The bound behind
-  the ceiling below applies to detectors that are functions of one frozen sentence
-  embedding. It says nothing about detectors that read activations, log-probs,
-  multiple samples, or retrieval — and it does not license the claim that those
-  cannot do better.
-- **Truth, of any kind.** Never render a passing check as "verified", "accurate"
-  or "not hallucinated". Send what this cannot settle to a second stage: an
-  entailment check, a lookup against the source, or a judge.
-
-## How it works
-
-groundlens uses embedding geometry, with no model in the scoring path, to check **provenance**: did this answer come from its source?
-
-- **SGI** computes `dist(response, question) / dist(response, context)`. If the response moved toward the context, it engaged the source. If it stayed near the question, the context was likely ignored.
-- **DGI** projects the question→response displacement onto the mean direction of answers written from a source. Context-free, and coarse.
-
-Both run a single embedding call. No inference. Deterministic.
-
-## The register wall, and why there is a second stage
-
-Bin confabulations by how far they sit from the register of a correct answer, and
-a detector that is a function of a single frozen sentence embedding — this one
-included — declines toward chance as the answer moves *into* register: same
-vocabulary, same phrasing, one wrong number. At the in-register end classic
-encoders reach AUROC 0.62 to 0.68 and raw cosine 0.595. On the
-authorship-matched split the directional score (DGI) reaches 0.606, a logistic
-probe 0.660 and an MLP probe 0.675.
-
-Three scope conditions, because the result is narrower than it is usually quoted:
-
-- **The ~0.68 ceiling is measured for DGI and for logistic/MLP probes over those
-  embeddings.** It is *not* a demonstrated ceiling for every embedding-similarity
-  method. Stronger classifiers (random forest, XGBoost) retain residual signal up
-  to 0.88 at high register alignment.
-- **Register sufficiency is an assumption, not a theorem**, and it is only
-  partially true: residual surface features retain a Spearman correlation of up
-  to 0.37 after register alignment is controlled for.
-- **The formal bound covers only detectors that are functions of a single frozen
-  sentence embedding.** It says nothing about detectors that read activations,
-  log-probs, multiple samples, or retrieval.
-
-SGI and DGI are also not interchangeable: SGI uses a source document, DGI is
-reference-free, and the authorship control was run on DGI and on probes over
-embeddings, not on SGI. Never quote a number for one as if it were the other.
-
-Entailment does not decline. Across the same bins an NLI cross-encoder holds 0.836, 0.786, 0.837, 0.719, 0.887, and it is strongest exactly where geometry is weakest. **Entailment is the recommended second stage.** This server runs first, on everything, for free, and hands over what it cannot settle.
-
-Full write-up: *The Outer Geometry of Truth: Register Alignment and the Limits of
-Embedding-Based Hallucination Detection* — this is the paper everything else
-refers to as "the register wall". Read it before relying on any similarity-based
-detector, including this one.
-
-**Paper status.** arXiv preprints. Each has been through peer review at COLM,
-NeurIPS or ACL, three reviewers per paper, and each current version was revised
-to address every point raised. None is accepted at a venue yet. *The Outer
-Geometry of Truth* is newer than the others and has not been through that cycle.
-
-## First-call latency
-
-The first tool call downloads and loads the default encoder,
-`sentence-transformers/sentence-t5-large` (335M parameters, 768 dims, **~670 MB**
-of weights). On a normal connection that download takes a minute or two; it is
-cached afterwards and subsequent calls are fast. The model is loaded lazily so
-your MCP client doesn't slow down on startup.
-
-To trade accuracy for size, pass a smaller encoder to the groundlens library
-(`all-MiniLM-L6-v2` is 22M parameters, ~90 MB) — but the bundled SGI thresholds
-and the certified DGI reference direction were calibrated on sentence-t5-large,
-so any other encoder needs its own calibration before its flags mean anything.
-
-## Running from source
-
-```bash
-git clone https://github.com/groundlens-dev/groundlens-mcp.git
-cd groundlens-mcp
-pip install -e .
-groundlens-mcp
-```
-
-Or:
-
-```bash
-python -m groundlens_mcp
-```
-
-## Links
-
-- [groundlens library](https://github.com/groundlens-dev/groundlens) — `pip install groundlens`
-- [Documentation](https://docs.groundlens.dev)
-- [Website](https://groundlens.dev)
-- [Demo](https://huggingface.co/spaces/groundlens/groundlens-demo)
+Apache-2.0.

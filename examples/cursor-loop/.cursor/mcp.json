@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "groundlens": {
-      "command": "uvx",
-      "args": ["groundlens-mcp"]
-    }
-  }
-}

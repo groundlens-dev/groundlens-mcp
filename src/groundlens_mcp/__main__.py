@@ -1,5 +1,8 @@
-"""Allow running the server with `python -m groundlens_mcp`."""
+"""``python -m groundlens_mcp`` lands here, same as the console script."""
 
-from groundlens_mcp.server import main
+from __future__ import annotations
 
-main()
+from groundlens_mcp import main
+
+if __name__ == "__main__":
+    raise SystemExit(main())

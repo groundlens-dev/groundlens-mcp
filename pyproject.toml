@@ -4,51 +4,33 @@ build-backend = "hatchling.build"
 
 [project]
 name = "groundlens-mcp"
-dynamic = ["version"]
-description = "MCP server for groundlens — deterministic first-stage grounding checks for Claude Desktop, Cursor, Windsurf, and any MCP-compatible client"
+version = "3.0.0"
+description = "Deprecated. The groundlens MCP connector now ships inside groundlens itself."
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
-authors = [
-    { name = "Javier Marin", email = "javier@jmarin.info" },
-]
-keywords = [
-    "mcp",
-    "hallucination",
-    "llm",
-    "grounding",
-    "groundlens",
-    "claude-desktop",
-    "cursor",
-    "windsurf",
-]
+authors = [{ name = "Javier Marin" }]
+keywords = ["deprecated", "groundlens", "mcp"]
 classifiers = [
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Developers",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Development Status :: 7 - Inactive",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
-dependencies = [
-    "groundlens>=2026.7.23",
-    "mcp>=1.0.0",
-    "pydantic>=2.0.0",
-]
+
+# Deliberately empty. A tombstone that pulls a dependency tree is not a
+# tombstone. Anyone who lands here should install groundlens directly.
+dependencies = []
+
+[project.scripts]
+groundlens-mcp = "groundlens_mcp:main"
 
 [project.urls]
 Homepage = "https://groundlens.dev"
-Documentation = "https://docs.groundlens.dev"
-Repository = "https://github.com/groundlens-dev/groundlens-mcp"
-Issues = "https://github.com/groundlens-dev/groundlens-mcp/issues"
-
-[project.scripts]
-groundlens-mcp = "groundlens_mcp.server:main"
-
-[tool.hatch.version]
-path = "src/groundlens_mcp/__init__.py"
+Source = "https://github.com/groundlens-dev/groundlens"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/groundlens_mcp"]

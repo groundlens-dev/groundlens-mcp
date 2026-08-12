@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "groundlens-mcp"
-version = "3.0.0"
+version = "3.0.1"
 description = "Deprecated. The groundlens MCP connector now ships inside groundlens itself."
 readme = "README.md"
 license = "Apache-2.0"
@@ -34,3 +34,8 @@ Source = "https://github.com/groundlens-dev/groundlens"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/groundlens_mcp"]
+
+# A tombstone ships four files. Anything else that happens to sit in the
+# working tree is not part of the message.
+[tool.hatch.build.targets.sdist]
+include = ["src/groundlens_mcp", "README.md", "LICENSE", "pyproject.toml"]

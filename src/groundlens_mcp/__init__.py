@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import sys
 
-__version__ = "3.0.0"
+__version__ = "3.0.1"
 
 MESSAGE = """\
 groundlens-mcp is deprecated and no longer contains a server.

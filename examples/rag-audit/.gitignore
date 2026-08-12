@@ -1,6 +1,0 @@
-data/*.pdf
-chroma_db/
-outputs/
-.env
-__pycache__/
-*.pyc

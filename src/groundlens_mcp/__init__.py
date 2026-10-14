@@ -1,36 +1,34 @@
-"""Deprecated. The groundlens MCP connector now ships inside groundlens itself.
+"""Moved. The GroundLens MCP server ships inside the groundlens package.
 
-    pip install "groundlens[encoder,mcp]"
-    python -m groundlens.mcp
+    pip install "groundlens[mcp]"
+    groundlens-mcp
 
-This package exists only so that anyone who still runs ``groundlens-mcp`` gets a
-sentence telling them where it went, instead of a stack trace from a server built
-on a metric the project has withdrawn.
+This package exists only so that anyone who still runs the old
+``groundlens-mcp`` package gets a sentence telling them where the server went,
+instead of a stack trace.
 """
 
 from __future__ import annotations
 
 import sys
 
-__version__ = "3.0.1"
+__version__ = "3.0.2"
 
 MESSAGE = """\
-groundlens-mcp is deprecated and no longer contains a server.
+The groundlens-mcp package is retired. The GroundLens MCP server now ships
+inside the groundlens package, with three tools: verify_answer, verify_run
+and verify_records.
 
-The connector moved into the library, where there is now exactly one tool,
-find_unsupported_words, returning the words your sources least support and the
-closest span found for each. No verdict, no threshold.
+    pip install "groundlens[mcp]"
+    groundlens-mcp
 
-    pip install "groundlens[encoder,mcp]"
-    python -m groundlens.mcp
+In your MCP client configuration, use
 
-In your MCP client configuration, replace
+    "command": "groundlens-mcp"
 
-    "command": "uvx", "args": ["groundlens-mcp"]
+or, with uv and nothing installed,
 
-with
-
-    "command": "python", "args": ["-m", "groundlens.mcp"]
+    "command": "uvx", "args": ["--from", "groundlens[mcp]", "groundlens-mcp"]
 
 https://github.com/groundlens-dev/groundlens
 """

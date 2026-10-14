@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "groundlens-mcp"
-version = "3.0.1"
-description = "Deprecated. The groundlens MCP connector now ships inside groundlens itself."
+version = "3.0.2"
+description = "Retired. The GroundLens MCP server ships inside groundlens: pip install \"groundlens[mcp]\"."
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.10"
